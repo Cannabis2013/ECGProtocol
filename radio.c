@@ -2,14 +2,17 @@
 
 int radio_init(int addr)
 {
-    int mySocket;
-
-    struct sockaddr_in ClientService;
-    struct in_addr DummyObject;
+    struct in_addr adrs;
+    adrs.s_addr = addr;
+    char *data = inet_ntoa(adrs);
+    if(inet_aton(data,&adrs) == 0)
+    {
+        // TODO: Implement some validy check
+    }
 
     ClientService.sin_family = AF_INET;
     ClientService.sin_port = htons(3377);
-    ClientService.sin_addr.s_addr = (uint) inet_aton(RECIEVER_ADRS,&DummyObject);
+    ClientService.sin_addr.s_addr =(uint) addr;
 
     mySocket = socket(AF_INET,SOCK_STREAM,IPPROTO_UDP);
 
@@ -19,7 +22,6 @@ int radio_init(int addr)
         return -1;
     }
 
-    int connection = connect(mySocket,(struct sockaddr *)&ClientService,sizeof (ClientService));
-
+    //int connection = connect(mySocket,(struct sockaddr *)&ClientService,sizeof (ClientService));
     return 0;
 }
