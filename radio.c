@@ -2,9 +2,7 @@
 
 int radio_init(int addr)
 {
-    struct in_addr adrs;
-    adrs.s_addr = (uint) addr;
-    if(inet_aton(LOCALHOST,&adrs) == 0)
+    if(inet_aton(LOCALHOST,&LocalService.sin_addr) == 0)
     {
         printf("%s","Not a valid IPv4 adress! Did you enter your household adress you idiot?");
         return -1;
@@ -20,11 +18,10 @@ int radio_init(int addr)
         return -1;
     }
 
-    ClientService.sin_family = AF_INET;
-    ClientService.sin_port = htons(LOCALADRESS);
-    ClientService.sin_addr.s_addr =(uint) adrs.s_addr;
+    LocalService.sin_family = AF_INET;
+    LocalService.sin_port = htons(LOCALADRESS);
 
-    mySocket = socket(AF_INET,SOCK_STREAM,IPPROTO_UDP);
+    mySocket = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
     if(mySocket < 0)
     {
@@ -37,23 +34,33 @@ int radio_init(int addr)
 
 int radio_send(int dst, char *data, int len)
 {
-    if(inet_aton(&dst,NULL) == 0)
+    // Check if adress is valid and initialize struct for later use
+    struct sockaddr_in remoteService;
+    if(inet_aton(LOCALHOST,&remoteService.sin_addr) == 0)
     {
-        // TODO: Implement some error handling or specifikation
+        printf("%s","Not a valid IPv4 adress! Did you enter your household adress you idiot?");
         return -1;
     }
 
-    int connection = connect(mySocket,(struct sockaddr *)&ClientService,sizeof (ClientService));
+    // Check if destination port is within our desired interval limits
+    if(dst < 100 || dst > 60000)
+    {
+        printf("%s","Not a valid port. Did you enter the addres of your butt you dum liberal?");
+        return -1;
+    }
 
-    // Check if connection is established and handle the error if necessary
-    if(connection < 0)
+    remoteService.sin_family = AF_INET;
+    remoteService.sin_port = (in_port_t) dst;
+
+    ssize_t byte_transmitted = sendto(mySocket,data,(uint) len,0,(struct sockaddr *)&remoteService,sizeof (remoteService));
+
+    if(byte_transmitted < 0)
     {
         // TODO: Implement error handling
-        // NOTE: The connection variable is -1 if socket failed to establish connection to the destination
         return -1;
     }
-    if(send(mySocket,NULL,0,0) < 0)
-    {
 
-    }
+
+
+    return (int) byte_transmitted;
 }

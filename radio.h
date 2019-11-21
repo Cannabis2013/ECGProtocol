@@ -11,7 +11,7 @@
  *      My issues (Martin Hansen) can be outlined as follows:
  *          - Do we need to implement the loop here?
  *              - If yes; should we make use of the 'pthread' library (threading)?
- *          - Should we just stick to a local domain driven interface?
+ *          - Should we just assume the devices is part of a Local Area Network with no connection to the outside'?
  *              (We use ports as localadress as specified in the document and ignore internet functionality)
  *          - Shouldn't we force Peter to make the whole assignment blindfolded? :D
  */
@@ -34,7 +34,7 @@
 #define LOCALHOST "127.0.0.1"
 #define LOCALADRESS 55000
 
-extern struct sockaddr_in ClientService;
+extern struct sockaddr_in LocalService;
 extern int mySocket;
 
 extern const int local_adress;
