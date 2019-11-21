@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
+#include <uuid/uuid.h>
 
 //#include "errors.h"
 #define FRAME_PAYLOAD_SIZE 72
@@ -15,6 +16,8 @@
 
 extern struct sockaddr_in ClientService;
 extern int mySocket;
+
+extern const int local_adress;
 
 int radio_init ( int addr );
 int radio_send ( int dst , char * data , int len );
