@@ -34,8 +34,8 @@
 #define LOCALHOST "127.0.0.1"
 #define LOCALADRESS 55000
 
-extern struct sockaddr_in LocalService;
-extern int mySocket;
+static struct sockaddr_in LocalService;
+static int mySocket;
 
 extern const int local_adress;
 
