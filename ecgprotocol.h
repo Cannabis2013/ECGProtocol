@@ -2,6 +2,7 @@
 #define ECGPROTOCOL_H
 
 #include "radio.h"
+#include <time.h>
 
 /*
  * If anyone has seen the example code available on inside.dtu,
@@ -14,6 +15,9 @@
  *      - We have to implements some checksum algorithm we first have to figure out.
  */
 
+static int inital_send = 1;
+static int initial_recieve = 1;
+
 #define type_t char
 
 /*
@@ -22,11 +26,11 @@
  *      - EOT -- End Of Transmission
  */
 
-
 #define NIN char 0;
 #define EOT char 1
 #define DATA char 2
 #define META char 3
+#define INIT char 4
 
 typedef struct
 {
@@ -45,7 +49,7 @@ typedef struct
 typedef struct
 {
     type    _type;
-    char _data[0];
+    char    _data[0];
 }data ;
 
 
@@ -55,13 +59,11 @@ typedef union
 
     header  _header;
     data    _data;
-}frame;
+}Frame;
 
-void verifyChecksum(void)
-{
-    // TODO: Implements an algorithm that verifies the integrity of recieved data.
-}
+void verifyChecksum(void);
 
-void ecg_send(int dst, char *packet,int len);
+void ecg_send(int dst, char *data,int len);
+void ecg_recieve(int src,char *data,int _timeout);
 
 #endif // ECGPROTOCOL_H

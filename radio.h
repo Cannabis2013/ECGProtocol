@@ -29,18 +29,24 @@
 #include <stdlib.h>
 #include <uuid/uuid.h>
 
-//#include "errors.h"
+#include "custom_timer.h"
+
 #define FRAME_PAYLOAD_SIZE 72
 #define LOCALHOST "127.0.0.1"
 #define LOCALADRESS 55000
 
+#define TIMEOUT = -1
+#define CONNECTION_ERROR = -2
+#define SOCKET_ERROR = -3
+#define INVALID_ADRESS = -4
+
+
 static struct sockaddr_in LocalService;
 static int mySocket;
 
-extern const int local_adress;
-
 int radio_init ( int addr );
 int radio_send ( int dst , char * data , int len );
-int radio_recv ( int * src , char * data , int to_ms );
+int radio_recv ( int * src , char * data , int to_ms);
+
 
 # endif // _RADIO_H_
