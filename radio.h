@@ -32,13 +32,15 @@
 #include "custom_timer.h"
 
 #define FRAME_PAYLOAD_SIZE 72
+
+// We may find a way to generate a unique host adress for each devices
 #define LOCALHOST "127.0.0.1"
 #define LOCALADRESS 55000
 
-#define TIMEOUT = -1
-#define CONNECTION_ERROR = -2
-#define SOCKET_ERROR = -3
-#define INVALID_ADRESS = -4
+#define TIMEOUT -1
+#define CONNECTION_ERROR -2
+#define SOCKET_ERROR -3
+#define INVALID_ADRESS -4
 
 
 static struct sockaddr_in LocalService;

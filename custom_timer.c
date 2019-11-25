@@ -9,12 +9,6 @@ void start_timer()
     _timestamp_usec = _tVal.tv_usec;
 }
 
-void stop_timer()
-{
-    _timestamp_sec = 0;
-    _timestamp_usec = 0;
-}
-
 long long time_elapsed()
 {
     long long _elapsed;
@@ -27,7 +21,7 @@ long long time_elapsed()
     _current_time_sec = _tVal.tv_sec;
     _current_time_usec = _tVal.tv_usec;
 
-    _elapsed = 1000*(_current_time_sec - _timestamp_sec) + round((_current_time_usec - _timestamp_usec)/1000);
+    _elapsed = 1000*(_current_time_sec - _timestamp_sec) + (long long) round((_current_time_usec - _timestamp_usec)/1000);
 
     return _elapsed;
 }

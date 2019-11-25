@@ -1,8 +1,9 @@
 #ifndef ECGPROTOCOL_H
 #define ECGPROTOCOL_H
 
-#include "radio.h"
 #include <time.h>
+#include <string.h>
+#include "radio.h"
 
 /*
  * If anyone has seen the example code available on inside.dtu,
@@ -26,11 +27,12 @@ static int initial_recieve = 1;
  *      - EOT -- End Of Transmission
  */
 
-#define NIN char 0;
-#define EOT char 1
-#define DATA char 2
-#define META char 3
-#define INIT char 4
+#define NIN '0';
+#define EOT '1'
+#define DATA '2'
+#define META '3'
+#define INIT '4'
+#define ackwm '5'
 
 typedef struct
 {
@@ -44,21 +46,21 @@ typedef struct
     short     _dst; // Allocates 2 bytes for destination adress
     char    _protocol; // Allocates 1 byte for protocol identification
 
-}header;
+}Header;
 
 typedef struct
 {
     type    _type;
     char    _data[0];
-}data ;
+}Data ;
 
 
 typedef union
 {
     char    _raw[FRAME_PAYLOAD_SIZE];
 
-    header  _header;
-    data    _data;
+    Header  _header;
+    Data    _data;
 }Frame;
 
 void verifyChecksum(void);
