@@ -1,34 +1,35 @@
 #include "ecgprotocol.h"
 
 
-int ecg_send(int dst, char *data, int len)
+int ecg_send(int dst, char *data, int len,int to_ms)
 {
-    int bytes_send = 0;
-    Frame _packet;
-    // TODO: Implement some initial functionality that signals the start of a transmission
-    // NOTE: We may have to use threads in order to achieve this
+    int transmission_result = 0;
+    Packet intial_packet;
 
+    // INITIAL STATE
+    // Establish connection and exchange information between sender and reciever (handshake)
     if(inital_send)
     {
         Header _initial_header;
-        _initial_header._dst = (short) dst;
-        _initial_header._src = (short) LOCALADRESS;
-        _initial_header._type._type = INIT;
+        _initial_header.dst = (short) dst;
+        _initial_header.src = (short) LOCALADRESS;
+        _initial_header.type.type = INIT;
 
-        _packet._header = _initial_header;
+        intial_packet.header = _initial_header;
 
         // Transmit the packet. Try to do so while obtaining results code indicating an error.
 
-        int send_status = 0, try_connect = 4;
-        while((send_status = radio_send(dst,_packet._raw,len) < 0))
+        int try_connect = 4;
+        while((transmission_result = radio_send(dst,intial_packet.raw,len) < 0))
         {
-            if(send_status == INVALID_ADRESS)
+            if(transmission_result == INVALID_ADRESS)
             {
-                // TODO: Implement some error notification
+                error.error_code = INVALID_ADRESS;
+                strcpy(error.error_description,"The adress is not a valid IPv4 adress or port out of range");
 
                 return INVALID_ADRESS;
             }
-            else if(send_status == CONNECTION_ERROR)
+            else if(transmission_result == CONNECTION_ERROR)
             {
                 // TODO: Implement some error notification
                 try_connect--;
@@ -37,17 +38,14 @@ int ecg_send(int dst, char *data, int len)
                 return CONNECTION_ERROR;
         }
 
-        // Clear the packet
-        memset(_packet._raw,0,FRAME_PAYLOAD_SIZE);
-
-        /* Await and recieve reply from remote. This is a blocking call
-         * Timeout: 10 sec
-         * 4 attempts for a total duration of 40 sec
+        /*
+         * Await and recieve reply from remote of a total of 4 times. This is a blocking call
          */
 
+        Packet recieved_packet;
         int rcv_status = 0;
         int turn = 0;
-        while((rcv_status =  radio_recv(&dst,_packet._raw,10000)) < 0 || ++turn > 4)
+        while((rcv_status =  radio_recv(&dst,recieved_packet.raw,to_ms)) < 0 || ++turn > 4)
         {
             if(rcv_status == INVALID_ADRESS)
             {
@@ -64,17 +62,51 @@ int ecg_send(int dst, char *data, int len)
                 // TODO: Implement some error notification
             }
         }
+
+        if(recieved_packet.header.type.type == ACKWM)
+        {
+            remote.unique_adrs = recieved_packet.header.magic_key;
+            remote.ip_byte_adrs = recieved_packet.header.src;
+        }
         inital_send = 0;
     }
 
-    return bytes_send;
+    // DATA TRANSFER STATE
+    // Initialize the PTU with data
+
+    Data d;
+    strcpy(d.data,data);
+    d.type.type = DATA;
+    Packet data_packet;
+    data_packet.data = d;
+
+    if((transmission_result = radio_send(remote.ip_byte_adrs,data_packet.raw,FRAME_PAYLOAD_SIZE)) < 0)
+    {
+        if(transmission_result == INVALID_ADRESS)
+        {
+            error.error_code = INVALID_ADRESS;
+            strcpy(error.error_description,"The adress is not a valid IPv4 adress or port out of range");
+        }
+        else if (transmission_result == CONNECTION_ERROR) {
+            error.error_code = INVALID_ADRESS;
+            strcpy(error.error_description,"Have you paid your ISP bill or are you just trying to connect through your imagination?");
+        }
+    }
+    Packet remote_response_packet;
+    int response_code = 0;
+    if((response_code = radio_recv(remote.unique_adrs,remote_response_packet.raw,to_ms)) < 0)
+    {
+        return response_code;
+    }
+
+    return transmission_result;
 }
 
 int ecg_recieve(int src, char *data, int _timeout)
 {
-    Frame _packet;
+    Packet _packet;
 
-    memcpy(&_packet._raw,data,FRAME_PAYLOAD_SIZE);
+    memcpy(&_packet.raw,data,FRAME_PAYLOAD_SIZE);
 }
 
 void verifyChecksum()

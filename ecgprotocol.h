@@ -31,6 +31,16 @@ typedef struct
     char error_description[0];
 }Error;
 
+Error static error;
+
+typedef struct
+{
+    uint unique_adrs;
+    ushort ip_byte_adrs;
+}REMOTE_META;
+
+REMOTE_META static remote;
+
 #define type_t char
 
 /*
@@ -45,40 +55,41 @@ typedef struct
 #define META '3'
 #define INIT '4'
 #define ACKWM '5'
+#define P_ACKWM '6'
 
 typedef struct
 {
-    type_t  _type;
+    type_t  type;
 }Type;
 
 typedef struct
 {
-    Type    _type; // Allocates 1 bytes for type identification
-    short   _src; // Allocates 2 bytes for source adress
-    short   _dst; // Allocates 2 bytes for destination adress
-    char    _protocol; // Allocates 1 byte for protocol identification
-    unsigned int _magic_key; // Allocates 4 byres for unique identification
+    Type    type; // Allocates 1 bytes for type identification
+    ushort   src; // Allocates 2 bytes for source adress
+    ushort   dst; // Allocates 2 bytes for destination adress
+    char    protocol; // Allocates 1 byte for protocol identification
+    unsigned int magic_key; // Allocates 4 byres for unique identification
 
 }Header;
 
 typedef struct
 {
-    Type    _type;
-    char    _data[0];
+    Type    type;
+    char    data[0];
 }Data ;
 
 
 typedef union
 {
-    char    _raw[FRAME_PAYLOAD_SIZE];
+    char    raw[FRAME_PAYLOAD_SIZE];
 
-    Header  _header;
-    Data    _data;
-}Frame;
+    Header  header;
+    Data    data;
+}Packet;
 
 void verifyChecksum(void);
 
-int ecg_send(int dst, char *data,int len);
+int ecg_send(int dst, char *data, int len, int to_ms);
 int ecg_recieve(int src,char *data,int _timeout);
 
 #endif // ECGPROTOCOL_H
