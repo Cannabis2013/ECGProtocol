@@ -19,6 +19,18 @@
 static int inital_send = 1;
 static int initial_recieve = 1;
 
+
+/*
+ * Error handling:
+ *  - Erorr structure containing error code and description
+ */
+
+typedef struct
+{
+    int error_code;
+    char error_description[0];
+}Error;
+
 #define type_t char
 
 /*
@@ -32,25 +44,26 @@ static int initial_recieve = 1;
 #define DATA '2'
 #define META '3'
 #define INIT '4'
-#define ackwm '5'
+#define ACKWM '5'
 
 typedef struct
 {
     type_t  _type;
-}type;
+}Type;
 
 typedef struct
 {
-    type    _type; // Allocates 1 bytes for type identification
-    short     _src; // Allocates 2 bytes for source adress
-    short     _dst; // Allocates 2 bytes for destination adress
+    Type    _type; // Allocates 1 bytes for type identification
+    short   _src; // Allocates 2 bytes for source adress
+    short   _dst; // Allocates 2 bytes for destination adress
     char    _protocol; // Allocates 1 byte for protocol identification
+    unsigned int _magic_key; // Allocates 4 byres for unique identification
 
 }Header;
 
 typedef struct
 {
-    type    _type;
+    Type    _type;
     char    _data[0];
 }Data ;
 
@@ -65,7 +78,7 @@ typedef union
 
 void verifyChecksum(void);
 
-void ecg_send(int dst, char *data,int len);
-void ecg_recieve(int src,char *data,int _timeout);
+int ecg_send(int dst, char *data,int len);
+int ecg_recieve(int src,char *data,int _timeout);
 
 #endif // ECGPROTOCOL_H

@@ -74,18 +74,27 @@ int radio_recv(int *src, char *data, int to_ms)
     if(to_ms == 0)
     {
         ssize_t bytes_recieved = recv(mySocket,data,FRAME_PAYLOAD_SIZE,0);
-        if(bytes_recieved == 0)
-            return 0;
+        if(bytes_recieved <= 0)
+            return TIMEOUT;
         else
             return (int) bytes_recieved;
     }
 
     start_timer();
-    while (time_elapsed() <= to_ms) {
+    while (time_elapsed() <= to_ms || to_ms < 0) {
         ssize_t bytes_recieved = recv(mySocket,data,FRAME_PAYLOAD_SIZE,0);
         if(bytes_recieved > 0)
             return (int) bytes_recieved;
     }
 
     return TIMEOUT; // TIMEOUT
+}
+
+unsigned int permuteQPR(unsigned int x)
+{
+    static const unsigned int prime = 4294967291;
+    if (x >= prime)
+        return x;  // The 5 integers out of range are mapped to themselves.
+    unsigned int residue = ((unsigned long long) x * x) % prime;
+    return (x <= prime / 2) ? residue : prime - residue;
 }

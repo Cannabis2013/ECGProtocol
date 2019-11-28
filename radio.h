@@ -1,19 +1,12 @@
 /*
  *      Notes for the group regarding the use of the sys/socket library.
  *
- *      For information about functions and their return values please visit the following:
+ *      For information about functions and their return values please visit the following link:
  *
  *          Url: https://pubs.opengroup.org/onlinepubs/7908799/xns/connect.html
  *
  *      The link contains some usefull description of functions and definitions that might prove usefull
- *      in relation to usage and further clarification.
- *
- *      My issues (Martin Hansen) can be outlined as follows:
- *          - Do we need to implement the loop here?
- *              - If yes; should we make use of the 'pthread' library (threading)?
- *          - Should we just assume the devices is part of a Local Area Network with no connection to the outside'?
- *              (We use ports as localadress as specified in the document and ignore internet functionality)
- *          - Shouldn't we force Peter to make the whole assignment blindfolded? :D
+ *      with respect to return values and their meaning..
  */
 
 
@@ -37,6 +30,14 @@
 #define LOCALHOST "127.0.0.1"
 #define LOCALADRESS 55000
 
+
+/* This part isn't so easy. We assume that the radio chip has its own unique adressing
+ * in forms of a number that is ordered by manufaction
+ */
+
+#define CHIP_NUMBER = 0
+#define UNIQUE_ADRESS = permuteQPR(permuQPR(CHIP_NUMBER) )^0x5bf03635;
+
 #define TIMEOUT -1
 #define CONNECTION_ERROR -2
 #define SOCKET_ERROR -3
@@ -45,6 +46,8 @@
 
 static struct sockaddr_in LocalService;
 static int mySocket;
+
+unsigned int permuteQPR(unsigned int x);
 
 int radio_init ( int addr );
 int radio_send ( int dst , char * data , int len );

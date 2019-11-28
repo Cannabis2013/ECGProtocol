@@ -1,8 +1,9 @@
 #include "ecgprotocol.h"
 
 
-void ecg_send(int dst, char *data, int len)
+int ecg_send(int dst, char *data, int len)
 {
+    int bytes_send = 0;
     Frame _packet;
     // TODO: Implement some initial functionality that signals the start of a transmission
     // NOTE: We may have to use threads in order to achieve this
@@ -16,41 +17,60 @@ void ecg_send(int dst, char *data, int len)
 
         _packet._header = _initial_header;
 
-        int send_status = radio_send(dst,_packet._raw,len);
+        // Transmit the packet. Try to do so while obtaining results code indicating an error.
 
-        if(send_status == INVALID_ADRESS)
+        int send_status = 0, try_connect = 4;
+        while((send_status = radio_send(dst,_packet._raw,len) < 0))
         {
-            // TODO: Implement some error notification
-        }
-        else if(send_status == CONNECTION_ERROR)
-        {
-            // TODO: Implement some error notification
+            if(send_status == INVALID_ADRESS)
+            {
+                // TODO: Implement some error notification
+
+                return INVALID_ADRESS;
+            }
+            else if(send_status == CONNECTION_ERROR)
+            {
+                // TODO: Implement some error notification
+                try_connect--;
+            }
+            if(try_connect < 0)
+                return CONNECTION_ERROR;
         }
 
         // Clear the packet
         memset(_packet._raw,0,FRAME_PAYLOAD_SIZE);
 
-        // Blocking call
-        int rcv_status = radio_recv(&dst,_packet._raw,2000);
+        /* Await and recieve reply from remote. This is a blocking call
+         * Timeout: 10 sec
+         * 4 attempts for a total duration of 40 sec
+         */
 
-        if(rcv_status == INVALID_ADRESS)
+        int rcv_status = 0;
+        int turn = 0;
+        while((rcv_status =  radio_recv(&dst,_packet._raw,10000)) < 0 || ++turn > 4)
         {
-            // TODO: Implement some error notification
+            if(rcv_status == INVALID_ADRESS)
+            {
+                // TODO: Implement some error notification
+                // This cancels the operation
+                return INVALID_ADRESS;
+            }
+            else if(rcv_status == CONNECTION_ERROR)
+            {
+                // TODO: Implement some error notification
+            }
+            else if(rcv_status == TIMEOUT)
+            {
+                // TODO: Implement some error notification
+            }
         }
-        else if(rcv_status == CONNECTION_ERROR)
-        {
-            // TODO: Implement some error notification
-        }
-        else if(rcv_status == TIMEOUT)
-        {
-            // TODO: Implement some error notification
-        }
-
+        inital_send = 0;
     }
 
+    return bytes_send;
 }
 
-void ecg_recieve(int src, char *data, int _timeout)
+int ecg_recieve(int src, char *data, int _timeout)
 {
     Frame _packet;
 

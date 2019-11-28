@@ -22,6 +22,22 @@ long long time_elapsed()
     _current_time_usec = _tVal.tv_usec;
 
     _elapsed = 1000*(_current_time_sec - _timestamp_sec) + (long long) round((_current_time_usec - _timestamp_usec)/1000);
-
     return _elapsed;
+}
+
+void block(int ms)
+{
+    struct timeval _tVal;
+    gettimeofday(&_tVal,0);
+
+    int sec = _tVal.tv_sec;
+    int usec = _tVal.tv_usec;
+
+    int times_up = 0;
+
+    while (!times_up) {
+        gettimeofday(&_tVal,0);
+        long long elapsed = 1000*(_tVal.tv_sec - sec) + (long long) round((_tVal.tv_usec - usec)/1000);
+        times_up = elapsed > ms ? 1 : 0;
+    }
 }

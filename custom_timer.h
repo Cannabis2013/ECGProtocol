@@ -13,5 +13,6 @@ static long long _timestamp_usec;
 void start_timer(void);
 long long time_elapsed(void);
 void stop_timer(void);
+void block(int ms);
 
 #endif // CUSTOM_TIMER_H
