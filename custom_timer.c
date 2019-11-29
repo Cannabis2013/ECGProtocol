@@ -30,8 +30,8 @@ void block(int ms)
     struct timeval _tVal;
     gettimeofday(&_tVal,0);
 
-    int sec = _tVal.tv_sec;
-    int usec = _tVal.tv_usec;
+    uint sec = _tVal.tv_sec;
+    uint usec = _tVal.tv_usec;
 
     int times_up = 0;
 

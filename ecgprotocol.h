@@ -30,7 +30,7 @@ typedef struct
     char error_description[0];
 }Error;
 
-Error static error;
+static Error error;
 
 typedef struct
 {
@@ -43,19 +43,15 @@ REMOTE_META static remote;
 #define type_t char
 
 /*
- * Frame type abbreviations:
- *      - NIT -- Not IniTialized
- *      - EOT -- End Of Transmission
+ * PTU types
  */
 
-#define NIN '0';
-#define EOT '1'
-#define DATA '2'
-#define META '3'
-#define INIT '4'
-#define ACKWM '5'
-#define P_ACKWM '6'
-#define END_OF_PACKET '7'
+#define CHUNK '0'
+#define META '1'
+#define INIT '2'
+#define ACKWM '3'
+#define P_ACKWM '4'
+#define LAST_CHUNK '5'
 
 typedef struct
 {

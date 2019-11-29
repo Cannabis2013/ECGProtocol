@@ -2,8 +2,7 @@
 #include "radio.h"
 #include <string.h>
 
-
-#include <pthread.h>
+#include "ecgprotocol.h"
 
 int main()
 {

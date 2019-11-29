@@ -3,8 +3,10 @@
 
 int ecg_send(int dst, char *data, int len,int to_ms)
 {
-    // INITIAL STATE
-    // Establish connection and exchange information between sender and reciever (handshake)
+    /*
+     * INITIAL STATE
+     *  - Establish connection and exchange information between sender and reciever (handshake)
+     */
     if(!channel_established)
     {
         Packet initial_packet;
@@ -36,14 +38,19 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         channel_established = 0;
     }
 
+
+    /*
+     * SEND DATA STATE
+     *  - Splits the data into chunks of each size 128b
+     */
     int str_index = 0;
-    int residue_data_len = len;
-    while (residue_data_len > 0)
+    int residual_data_len = len;
+    while (residual_data_len > 0)
     {
         Packet packet;
         Data d;
-        d.type.type = DATA;
-        int packet_len = residue_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residue_data_len;
+        d.type.type = CHUNK;
+        int packet_len = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
         cp_data(d.data,data + str_index,packet_len);
         packet.data = d;
         if(try_send(&packet,remote.ip_byte_adrs,4,FRAME_PAYLOAD_SIZE) <0)
@@ -56,19 +63,20 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 
         if(reply.header.type.type == P_ACKWM)
         {
-            residue_data_len -= FRAME_PAYLOAD_SIZE;
-            str_index += residue_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residue_data_len;
+            residual_data_len -= FRAME_PAYLOAD_SIZE;
+            str_index += residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
         }
     }
     Packet packet_complete;
     Header final_transmission_header;
     final_transmission_header.src = (ushort) LOCALADRESS;
     final_transmission_header.dst = remote.ip_byte_adrs;
-    final_transmission_header.type.type = END_OF_PACKET;
+    final_transmission_header.type.type = LAST_CHUNK;
     packet_complete.header = final_transmission_header;
 
     /* Reaching this state we have to assume the whole pack has succesfully been transmitted.
-     * But what about the scenario the final transmission, indicating a succesfull packet transmission, fails?
+     * To reduce the risks for a final transmission fail, we double the number of connection attempts
+     * at both sending and recieving.
      */
 
     if(try_send(&packet_complete,remote.ip_byte_adrs,8,FRAME_PAYLOAD_SIZE) <0)
@@ -83,13 +91,11 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 
 int ecg_recieve(int src, char *data,int len, int to_ms)
 {
-
     /*
      * Note: Use STRCAT function to append an array to another array
      */
-    Packet _packet;
 
-    memcpy(&_packet.raw,data,FRAME_PAYLOAD_SIZE);
+    return 0;
 }
 
 void verifyChecksum()

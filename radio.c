@@ -32,8 +32,8 @@ int radio_send(int dst, char *data, int len)
         return INVALID_ADRESS;
     }
 
-    // Check if destination port is within our desired interval limits
-    if(dst < 100 || dst > 60000)
+    // Check if the port number adress is wihthin the desired port range
+    if(dst < 1023 || dst > 65336)
     {
         printf("%s","Not a valid port. Did you enter the addres of your butt you dum liberal?");
         return INVALID_ADRESS;
@@ -46,8 +46,10 @@ int radio_send(int dst, char *data, int len)
     int connection = connect(mySocket,(struct sockaddr *)&remoteService,sizeof (remoteService));
     if(connection < 0)
         return CONNECTION_ERROR;
+    int bytes_send = (int) send(mySocket,data,(uint) len,0);
 
-    return (int) send(mySocket,data,(uint) len,0);
+    block(950); // Assuming the above operations took about 50ms
+    return bytes_send;
 }
 
 int radio_recv(int *src, char *data, int to_ms)
@@ -85,7 +87,10 @@ int radio_recv(int *src, char *data, int to_ms)
     while (time_elapsed() <= to_ms || to_ms < 0) {
         ssize_t bytes_recieved = recv(mySocket,data,FRAME_PAYLOAD_SIZE,0);
         if(bytes_recieved > 0)
+        {
+            block(950);
             return (int) bytes_recieved;
+        }
     }
 
     return TIMEOUT; // TIMEOUT
