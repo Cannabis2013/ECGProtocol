@@ -24,7 +24,9 @@
 
 #include "custom_timer.h"
 
-#define FRAME_PAYLOAD_SIZE 72
+#define FRAME_PAYLOAD_SIZE 128
+#define TRANSFER_RATE_BITS 19200
+#define TRANSFER_RATE_BYTES TRANSFER_RATE_BITS/8
 
 // We may find a way to generate a unique host adress for each devices
 #define LOCALHOST "127.0.0.1"

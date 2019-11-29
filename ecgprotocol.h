@@ -16,8 +16,7 @@
  *      - We have to implements some checksum algorithm we first have to figure out.
  */
 
-static int inital_send = 1;
-static int initial_recieve = 1;
+static int channel_established = 0;
 
 
 /*
@@ -56,6 +55,7 @@ REMOTE_META static remote;
 #define INIT '4'
 #define ACKWM '5'
 #define P_ACKWM '6'
+#define END_OF_PACKET '7'
 
 typedef struct
 {
@@ -89,7 +89,13 @@ typedef union
 
 void verifyChecksum(void);
 
+int try_send(Packet *packet, int adrs_reciever, int connection_attempts, int len);
+int await_reply(Packet *buffer, int adrs_from, int timeout, int connection_attempts, int len);
+
+void cp_data(char*dst,char*src, int look_ahead);
+
+int ecg_init ( int addr );
 int ecg_send(int dst, char *data, int len, int to_ms);
-int ecg_recieve(int src,char *data,int _timeout);
+int ecg_recieve(int src, char *data, int len, int to_ms);
 
 #endif // ECGPROTOCOL_H
