@@ -18,10 +18,9 @@
 
 static int channel_established = 0;
 
-
 /*
  * Error handling:
- *  - Erorr structure containing error code and description
+ *  - Error structure containing error code and description
  */
 
 typedef struct
@@ -32,6 +31,8 @@ typedef struct
 
 static Error error;
 
+// Remote meta information structure
+
 typedef struct
 {
     uint unique_adrs;
@@ -39,6 +40,11 @@ typedef struct
 }REMOTE_META;
 
 REMOTE_META static remote;
+
+#define CONNECTION_INIT_ATTEMPT 4
+#define CONNECTION_SEND_ATTEMPT 3
+#define CONNECTION_AWAIT_ATTEMPT 3
+#define CONNECTION_FINAL_ATTEMP 8
 
 #define type_t char
 

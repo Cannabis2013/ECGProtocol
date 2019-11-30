@@ -7,6 +7,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
      * INITIAL STATE
      *  - Establish connection and exchange information between sender and reciever (handshake)
      */
+
     if(!channel_established)
     {
         Packet initial_packet;
@@ -17,9 +18,9 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 
         initial_packet.header = initial_header;
 
-        // Transmit the packet. Try to do so while obtained results code indicate errors.
+        // Transmit the packet. Try to do so while obtained result codes indicates error.
 
-        if(try_send(&initial_packet,dst,4,FRAME_PAYLOAD_SIZE) < 0)
+        if(try_send(&initial_packet,dst,CONNECTION_SEND_ATTEMPT,FRAME_PAYLOAD_SIZE) < 0)
             return error.error_code;
 
         /*
@@ -27,7 +28,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
          */
 
         Packet recieved_packet;
-        if(await_reply(&recieved_packet,dst,to_ms,4,FRAME_PAYLOAD_SIZE) < 0)
+        if(await_reply(&recieved_packet,dst,to_ms,CONNECTION_AWAIT_ATTEMPT,FRAME_PAYLOAD_SIZE) < 0)
             return error.error_code;
 
         if(recieved_packet.header.type.type == ACKWM)
@@ -38,11 +39,11 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         channel_established = 0;
     }
 
-
     /*
-     * SEND DATA STATE
+     * "SEND DATA" STATE
      *  - Splits the data into chunks of each size 128b
      */
+
     int str_index = 0;
     int residual_data_len = len;
     while (residual_data_len > 0)
@@ -53,12 +54,15 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         int packet_len = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
         cp_data(d.data,data + str_index,packet_len);
         packet.data = d;
-        if(try_send(&packet,remote.ip_byte_adrs,4,FRAME_PAYLOAD_SIZE) <0)
+
+        // NOTE: Still need to implement integrity verification
+
+        if(try_send(&packet,remote.ip_byte_adrs,CONNECTION_SEND_ATTEMPT,FRAME_PAYLOAD_SIZE) <0)
             return error.error_code;
 
         // Wait for reply to esnure data has arrived at its destination safely
         Packet reply;
-        if(await_reply(&reply,0,to_ms,4,FRAME_PAYLOAD_SIZE) < 0)
+        if(await_reply(&reply,0,to_ms,CONNECTION_AWAIT_ATTEMPT,FRAME_PAYLOAD_SIZE) < 0)
             return error.error_code;
 
         if(reply.header.type.type == P_ACKWM)
@@ -75,15 +79,15 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     packet_complete.header = final_transmission_header;
 
     /* Reaching this state we have to assume the whole pack has succesfully been transmitted.
-     * To reduce the risks for a final transmission fail, we double the number of connection attempts
-     * at both sending and recieving.
+     * To reduce the risks for a final transmission fail, we set the number of connection attempts
+     * at both sending and recieving to 8.
      */
 
-    if(try_send(&packet_complete,remote.ip_byte_adrs,8,FRAME_PAYLOAD_SIZE) <0)
+    if(try_send(&packet_complete,remote.ip_byte_adrs,CONNECTION_FINAL_ATTEMP,FRAME_PAYLOAD_SIZE) <0)
         return error.error_code;
 
     Packet recieved_packet;
-    if(await_reply(&recieved_packet,remote.ip_byte_adrs,to_ms,4,FRAME_PAYLOAD_SIZE) < 0)
+    if(await_reply(&recieved_packet,remote.ip_byte_adrs,to_ms,CONNECTION_FINAL_ATTEMP,FRAME_PAYLOAD_SIZE) < 0)
         return error.error_code;
 
     return len;
@@ -108,6 +112,10 @@ int ecg_init(int addr)
     int status = radio_init(addr);
     if(status == INVALID_ADRESS)
     {
+        printf("Adress not valid. No reason to proceed.");
+        exit(-1);
+    }
+    else if (status == CONNECTION_ERROR) {
 
     }
 }
