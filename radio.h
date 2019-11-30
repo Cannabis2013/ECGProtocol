@@ -13,40 +13,36 @@
 #ifndef RADIO_H
 #define RADIO_H
 
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-#include <stdlib.h>
 #include <uuid/uuid.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "custom_timer.h"
 
 #define FRAME_PAYLOAD_SIZE 128
 #define TRANSFER_RATE_BITS 19200
-#define TRANSFER_RATE_BYTES TRANSFER_RATE_BITS/8
+#define TRANSFER_RATE_BYTES (TRANSFER_RATE_BITS/8)
 
 // We may find a way to generate a unique host adress for each devices
 #define LOCALHOST "127.0.0.1"
 #define LOCALADRESS 55000
 
 
-/* This part isn't so easy. We assume that the radio chip has its own unique adressing
- * in forms of a number that is ordered by manufaction
- */
+#define SEED 0
+uint unique_adress;
 
-#define CHIP_NUMBER = 0
-#define UNIQUE_ADRESS = permuteQPR(permuQPR(CHIP_NUMBER) )^0x5bf03635;
-
+struct sockaddr_in LocalService;
 #define TIMEOUT -1
 #define CONNECTION_ERROR -2
 #define SOCKET_ERROR -3
 #define INVALID_ADRESS -4
 
 
-static struct sockaddr_in LocalService;
 static int mySocket;
 
 unsigned int permuteQPR(unsigned int x);

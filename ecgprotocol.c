@@ -1,6 +1,5 @@
 #include "ecgprotocol.h"
 
-
 int ecg_send(int dst, char *data, int len,int to_ms)
 {
     /*
@@ -11,12 +10,11 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     if(!channel_established)
     {
         Packet initial_packet;
-        Header initial_header;
-        initial_header.dst = (ushort) dst;
-        initial_header.src = (ushort) LOCALADRESS;
-        initial_header.type.type = INIT;
-
-        initial_packet.header = initial_header;
+        initial_packet.header.type.type = INIT;
+        initial_packet.header.src = (ushort) htobe16(LocalService.sin_port);
+        initial_packet.header.dst = (ushort) dst;
+        initial_packet.header.magic_key = 3444;
+        initial_packet.header.protocol = IPPROTO_UDP;
 
         // Transmit the packet. Try to do so while obtained result codes indicates error.
 
@@ -36,7 +34,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
             remote.unique_adrs = recieved_packet.header.magic_key;
             remote.ip_byte_adrs = recieved_packet.header.src;
         }
-        channel_established = 0;
+        channel_established = 1;
     }
 
     /*
@@ -90,6 +88,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     if(await_reply(&recieved_packet,remote.ip_byte_adrs,to_ms,CONNECTION_FINAL_ATTEMP,FRAME_PAYLOAD_SIZE) < 0)
         return error.error_code;
 
+    channel_established = 0;
     return len;
 }
 
@@ -116,8 +115,10 @@ int ecg_init(int addr)
         exit(-1);
     }
     else if (status == CONNECTION_ERROR) {
-
+        exit(-1);
     }
+
+    return status;
 }
 
 void cp_data(char*dst, char*src, int src_len)
@@ -128,7 +129,7 @@ void cp_data(char*dst, char*src, int src_len)
 
 int await_reply(Packet *buffer,int adrs_from,int timeout,int connection_attempts, int len)
 {
-    if(adrs_from)
+    if(adrs_from == 0)
         adrs_from = remote.ip_byte_adrs;
     int status = 0;
     while((status = radio_recv(&adrs_from,buffer->raw,timeout))<0)
@@ -141,8 +142,15 @@ int await_reply(Packet *buffer,int adrs_from,int timeout,int connection_attempts
             return CONNECTION_ERROR;
         }
 
-        if(status == CONNECTION_ERROR)
+        if(status == INVALID_ADRESS)
+        {
+            error.error_code = INVALID_ADRESS;
+            strcpy(error.error_description,"Invalid adress provided.");
+            return INVALID_ADRESS;
+        }
+        else if(status == CONNECTION_ERROR)
             connection_attempts--;
+
         else if(status == TIMEOUT)
         {
             error.error_code = TIMEOUT;
@@ -158,7 +166,8 @@ int await_reply(Packet *buffer,int adrs_from,int timeout,int connection_attempts
 int try_send(Packet *packet,int adrs_reciever, int connection_attempts, int len)
 {
     int status = 0;
-    while((status = radio_send(adrs_reciever,packet->raw,len) < 0))
+
+    while((status = radio_send(adrs_reciever,packet->raw,len) <= 0))
     {
         if(status == INVALID_ADRESS)
         {

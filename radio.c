@@ -2,22 +2,24 @@
 
 int radio_init(int addr)
 {
-    if(inet_aton(LOCALHOST,&LocalService.sin_addr) == 0 || addr < 1024 || addr > 60000)
+    // NOTE: Has to find an alternative solution
+    unique_adress = permuteQPR((permuteQPR(1) + SEED) ^ 0x5bf03635);
+
+    if(inet_aton(LOCALHOST,&LocalService.sin_addr) == 0 || addr < 1024 || addr > 65336)
     {
         printf("%s","Not a valid IPv4 adress! Did you enter your household adress you idiot?");
         return INVALID_ADRESS;
     }
-
     LocalService.sin_family = AF_INET;
-    LocalService.sin_port = htons(LOCALADRESS);
-
+    LocalService.sin_port = htons((uint16_t)addr);
     mySocket = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-
     if(mySocket < 0)
     {
         printf("Socket is invalid");
         return SOCKET_ERROR;
     }
+
+    fcntl(mySocket,F_SETFL,O_NONBLOCK);
 
     return 0;
 }
@@ -26,6 +28,7 @@ int radio_send(int dst, char *data, int len)
 {
     // Check if adress is valid and initialize struct for later use
     struct sockaddr_in remoteService;
+
     if(inet_aton(LOCALHOST,&remoteService.sin_addr) == 0)
     {
         printf("%s","Not a valid IPv4 adress! Did you enter your household adress you idiot?");
@@ -33,7 +36,7 @@ int radio_send(int dst, char *data, int len)
     }
 
     // Check if the port number adress is wihthin the desired port range
-    if(dst < 1023 || dst > 65336)
+    if(dst < 1024 || dst > 65336)
     {
         printf("%s","Not a valid port. Did you enter the addres of your butt you dum liberal?");
         return INVALID_ADRESS;
@@ -41,14 +44,14 @@ int radio_send(int dst, char *data, int len)
 
 
     remoteService.sin_family = AF_INET;
-    remoteService.sin_port = (in_port_t) dst;
+    remoteService.sin_port = htons((uint16_t)dst);
 
     int connection = connect(mySocket,(struct sockaddr *)&remoteService,sizeof (remoteService));
     if(connection < 0)
         return CONNECTION_ERROR;
     int bytes_send = (int) send(mySocket,data,(uint) len,0);
-
     block(950); // Assuming the above operations took about 50ms
+
     return bytes_send;
 }
 
@@ -82,7 +85,6 @@ int radio_recv(int *src, char *data, int to_ms)
         else
             return (int) bytes_recieved;
     }
-
     start_timer();
     while (time_elapsed() <= to_ms || to_ms < 0) {
         ssize_t bytes_recieved = recv(mySocket,data,FRAME_PAYLOAD_SIZE,0);
@@ -96,6 +98,10 @@ int radio_recv(int *src, char *data, int to_ms)
     return TIMEOUT; // TIMEOUT
 }
 
+/* This algorithm is found on the internet.
+ * Credit goes solely to the author Jeff Preshing who presented this algorithm on his website Preshing.com with the full url given below:
+ * Url: https://preshing.com/20121224/how-to-generate-a-sequence-of-unique-random-integers/
+ */
 unsigned int permuteQPR(unsigned int x)
 {
     static const unsigned int prime = 4294967291;
