@@ -26,14 +26,18 @@ int radio_init(int addr)
 
 int radio_send(int dst, char *data, int len)
 {
-    char *frame = malloc(FRAME_PAYLOAD_SIZE + FRAME_OVERHEAD_SIZE);
 
-    // Set the magic key
+    // Initialize the frame
+    Frame_PTU frame;
 
-    cp_data(frame + 10,integertoc(unique_adress),4);
+    frame.frame.header.src = htole16(LocalService.sin_port);
+    frame.frame.header.dst = (ushort) dst;
+    frame.frame.header.lenght = FRAME_PAYLOAD_SIZE;
+    frame.frame.unique_adress = unique_adress;
 
-    // Set the payload
-    cp_data(frame + 20,data,FRAME_PAYLOAD_SIZE);
+    cp_data(frame.frame.payload,data,FRAME_PAYLOAD_SIZE);
+
+    frame.frame.
 
     if(mySocket < 0)
         return SOCKET_ERROR;
@@ -61,7 +65,7 @@ int radio_send(int dst, char *data, int len)
     int connection = connect(mySocket,(struct sockaddr *)&remoteService,sizeof (remoteService));
     if(connection < 0)
         return CONNECTION_ERROR;
-    int bytes_send = (int) send(mySocket,data,(uint) len,0);
+    int bytes_send = (int) send(mySocket,frame.raw,(uint) len,0);
     block(950); // Assuming the above operations took about 50ms
 
     return bytes_send;
@@ -69,8 +73,6 @@ int radio_send(int dst, char *data, int len)
 
 int radio_recv(int *src, char *data, int to_ms)
 {
-    char *frame = malloc(FRAME_PAYLOAD_SIZE + FRAME_OVERHEAD_SIZE);
-
     /*
      * TODO: Need to implement some error functionality
      */
@@ -99,15 +101,20 @@ int radio_recv(int *src, char *data, int to_ms)
         else
             return (int) bytes_recieved;
     }
+
+    Frame_PTU frame;
+
     start_timer();
     while (time_elapsed() <= to_ms || to_ms < 0) {
-        ssize_t bytes_recieved = recv(mySocket,data,FRAME_PAYLOAD_SIZE,0);
+        ssize_t bytes_recieved = recv(mySocket,frame.raw,FRAME_PAYLOAD_SIZE,0);
         if(bytes_recieved > 0)
         {
             block(950);
             return (int) bytes_recieved;
         }
     }
+
+    cp_data(data,frame.frame.payload,FRAME_PAYLOAD_SIZE);
 
     return TIMEOUT; // TIMEOUT
 }

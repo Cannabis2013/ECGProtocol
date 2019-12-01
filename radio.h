@@ -54,19 +54,18 @@ typedef struct
 
 typedef struct
 {
-    char preAmble[10];
-    uint unique_adress;
-    Frame_Header header;
-    char payload[128];
-    ushort checksum;
+    char            preAmble[10];
+    uint            unique_adress;
+    Frame_Header    header;
+    char            payload[128];
+    ushort          checksum;
 
 }Frame;
 
 typedef union
 {
-    char raw[128 +22];
-
-    Frame frame;
+    char    raw[FRAME_PAYLOAD_SIZE + FRAME_OVERHEAD_SIZE];
+    Frame   frame;
 
 }Frame_PTU;
 
