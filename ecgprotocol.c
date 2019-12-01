@@ -13,7 +13,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         initial_packet.header.type.type = INIT;
         initial_packet.header.src = (ushort) htobe16(LocalService.sin_port);
         initial_packet.header.dst = (ushort) dst;
-        initial_packet.header.magic_key = 3444;
+        initial_packet.header.magic_key = unique_adress;
         initial_packet.header.protocol = IPPROTO_UDP;
 
         // Transmit the packet. Try to do so while obtained result codes indicates error.
@@ -29,7 +29,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         if(await_reply(&recieved_packet,dst,to_ms,CONNECTION_AWAIT_ATTEMPT,FRAME_PAYLOAD_SIZE) < 0)
             return error.error_code;
 
-        if(recieved_packet.header.type.type == ACKWM)
+        if(recieved_packet.header.type.type == ACK)
         {
             remote.unique_adrs = recieved_packet.header.magic_key;
             remote.ip_byte_adrs = recieved_packet.header.src;
@@ -63,7 +63,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         if(await_reply(&reply,0,to_ms,CONNECTION_AWAIT_ATTEMPT,FRAME_PAYLOAD_SIZE) < 0)
             return error.error_code;
 
-        if(reply.header.type.type == P_ACKWM)
+        if(reply.header.type.type == P_ACK)
         {
             residual_data_len -= FRAME_PAYLOAD_SIZE;
             str_index += residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
@@ -94,9 +94,40 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 
 int ecg_recieve(int src, char *data,int len, int to_ms)
 {
-    /*
-     * Note: Use STRCAT function to append an array to another array
-     */
+
+    char *chunk = malloc(sizeof (char*));
+
+    while (1) {
+        Packet recieved_packet;
+
+        if(!await_reply(&recieved_packet,src,to_ms,CONNECTION_LISTEN_ATTEMPT,FRAME_PAYLOAD_SIZE))
+            return error.error_code;
+
+        if(recieved_packet.header.type.type == INIT)
+        {
+            remote.unique_adrs = recieved_packet.header.magic_key;
+            remote.ip_byte_adrs = recieved_packet.header.src;
+
+            Packet ACK_PACKET;
+            ACK_PACKET.header.type.type = ACK;
+            ACK_PACKET.header.src = (ushort) htobe16(LocalService.sin_port);
+            ACK_PACKET.header.dst = (ushort) src;
+            ACK_PACKET.header.magic_key = unique_adress;
+
+            if(!try_send(&ACK_PACKET,remote.ip_byte_adrs,CONNECTION_INIT_ATTEMPT,FRAME_PAYLOAD_SIZE))
+                return error.error_code;
+        }
+        else if(recieved_packet.data.type.type == CHUNK)
+        {
+            // TODO: Again, we have to implement some kind of integrety verification.
+            strcat(chunk,recieved_packet.data.data);
+        }
+
+        else if (recieved_packet.header.type.type == LAST_CHUNK) {
+
+        }
+
+    }
 
     return 0;
 }
@@ -119,12 +150,6 @@ int ecg_init(int addr)
     }
 
     return status;
-}
-
-void cp_data(char*dst, char*src, int src_len)
-{
-    for (int i = 0; i < src_len; ++i)
-        *(dst + i) = *(src + i);
 }
 
 int await_reply(Packet *buffer,int adrs_from,int timeout,int connection_attempts, int len)

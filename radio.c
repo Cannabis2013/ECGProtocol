@@ -26,6 +26,18 @@ int radio_init(int addr)
 
 int radio_send(int dst, char *data, int len)
 {
+    char *frame = malloc(FRAME_PAYLOAD_SIZE + FRAME_OVERHEAD_SIZE);
+
+    // Set the magic key
+
+    cp_data(frame + 10,integertoc(unique_adress),4);
+
+    // Set the payload
+    cp_data(frame + 20,data,FRAME_PAYLOAD_SIZE);
+
+    if(mySocket < 0)
+        return SOCKET_ERROR;
+
     // Check if adress is valid and initialize struct for later use
     struct sockaddr_in remoteService;
 
@@ -57,6 +69,8 @@ int radio_send(int dst, char *data, int len)
 
 int radio_recv(int *src, char *data, int to_ms)
 {
+    char *frame = malloc(FRAME_PAYLOAD_SIZE + FRAME_OVERHEAD_SIZE);
+
     /*
      * TODO: Need to implement some error functionality
      */
@@ -102,6 +116,7 @@ int radio_recv(int *src, char *data, int to_ms)
  * Credit goes solely to the author Jeff Preshing who presented this algorithm on his website Preshing.com with the full url given below:
  * Url: https://preshing.com/20121224/how-to-generate-a-sequence-of-unique-random-integers/
  */
+
 unsigned int permuteQPR(unsigned int x)
 {
     static const unsigned int prime = 4294967291;
@@ -109,4 +124,22 @@ unsigned int permuteQPR(unsigned int x)
         return x;  // The 5 integers out of range are mapped to themselves.
     unsigned int residue = ((unsigned long long) x * x) % prime;
     return (x <= prime / 2) ? residue : prime - residue;
+}
+
+void cp_data(char*dst, char*src, int src_len)
+{
+    for (int i = 0; i < src_len; ++i)
+        *(dst + i) = *(src + i);
+}
+
+char* integertoc(uint number)
+{
+    int n = number == 0 ? 0 : log10(number);
+
+    char *result = malloc(sizeof (char*));
+
+    for (int i = n; i >= 0; --i, number /=10)
+        *(result + i) = number % 10 + 48;
+
+    return result;
 }

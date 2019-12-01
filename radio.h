@@ -21,10 +21,12 @@
 #include <uuid/uuid.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "custom_timer.h"
 
 #define FRAME_PAYLOAD_SIZE 128
+#define FRAME_OVERHEAD_SIZE 22
 #define TRANSFER_RATE_BITS 19200
 #define TRANSFER_RATE_BYTES (TRANSFER_RATE_BITS/8)
 
@@ -42,6 +44,32 @@ struct sockaddr_in LocalService;
 #define SOCKET_ERROR -3
 #define INVALID_ADRESS -4
 
+typedef struct
+{
+    ushort src;
+    ushort dst;
+    u_int8_t lenght;
+    u_int8_t protocol;
+}Frame_Header;
+
+typedef struct
+{
+    char preAmble[10];
+    uint unique_adress;
+    Frame_Header header;
+    char payload[128];
+    ushort checksum;
+
+}Frame;
+
+typedef union
+{
+    char raw[128 +22];
+
+    Frame frame;
+
+}Frame_PTU;
+
 
 static int mySocket;
 
@@ -51,5 +79,7 @@ int radio_init ( int addr );
 int radio_send ( int dst , char * data , int len );
 int radio_recv ( int * src , char * data , int to_ms);
 
+void cp_data(char*dst,char*src,int src_len);
 
+char *integertoc(uint number);
 # endif // _RADIO_H_

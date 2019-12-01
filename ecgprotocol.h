@@ -45,6 +45,7 @@ REMOTE_META static remote;
 #define CONNECTION_SEND_ATTEMPT 3
 #define CONNECTION_AWAIT_ATTEMPT 3
 #define CONNECTION_FINAL_ATTEMP 8
+#define CONNECTION_LISTEN_ATTEMPT 1
 
 #define type_t char
 
@@ -55,8 +56,8 @@ REMOTE_META static remote;
 #define CHUNK '0'
 #define META '1'
 #define INIT '2'
-#define ACKWM '3'
-#define P_ACKWM '4'
+#define ACK '3'
+#define P_ACK '4'
 #define LAST_CHUNK '5'
 
 typedef struct
@@ -94,7 +95,7 @@ void verifyChecksum(void);
 int try_send(Packet *packet, int adrs_reciever, int connection_attempts, int len);
 int await_reply(Packet *buffer, int adrs_from, int timeout, int connection_attempts, int len);
 
-void cp_data(char*dst,char*src,int src_len);
+
 
 int ecg_init ( int addr );
 int ecg_send(int dst, char *data, int len, int to_ms);
