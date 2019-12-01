@@ -37,8 +37,6 @@ int radio_send(int dst, char *data, int len)
 
     cp_data(frame.frame.payload,data,FRAME_PAYLOAD_SIZE);
 
-    frame.frame.
-
     if(mySocket < 0)
         return SOCKET_ERROR;
 
@@ -57,7 +55,6 @@ int radio_send(int dst, char *data, int len)
         printf("%s","Not a valid port. Did you enter the addres of your butt you dum liberal?");
         return INVALID_ADRESS;
     }
-
 
     remoteService.sin_family = AF_INET;
     remoteService.sin_port = htons((uint16_t)dst);
