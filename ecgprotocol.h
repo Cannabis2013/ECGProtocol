@@ -5,6 +5,7 @@
 #include <string.h>
 #include "radio.h"
 
+
 /*
  * If anyone has seen the example code available on inside.dtu,
  * you probably took note of the usage of the union structure.
@@ -49,6 +50,9 @@ REMOTE_META static remote;
 
 #define type_t char
 
+#define ADDITIONAL_OVERHEAD 4
+#define TOTAL_PAYLOAD_SIZE (FRAME_PAYLOAD_SIZE + ADDITIONAL_OVERHEAD)
+
 /*
  * PTU types
  */
@@ -68,8 +72,9 @@ typedef struct
 typedef struct
 {
     Type    type; // Allocates 1 bytes for type identification
-    ushort   src; // Allocates 2 bytes for source adress
-    ushort   dst; // Allocates 2 bytes for destination adress
+    ushort  src; // Allocates 2 bytes for source adress
+    ushort  dst; // Allocates 2 bytes for destination adress
+    uint    total_size; // Allocates 4 bytes for total chunk size
     char    protocol; // Allocates 1 byte for protocol identification
     unsigned int magic_key; // Allocates 4 byres for unique identification
 
@@ -77,17 +82,18 @@ typedef struct
 
 typedef struct
 {
-    Type    type;
-    char    data[0];
-}Data ;
+    Type    type; // Allocates 1 byte
+    char    data[FRAME_PAYLOAD_SIZE]; // 128 bytes allocated
+    uint    chunk_size; // Allocates 4 bytes
+}Chunk; // At least 5 bytes allocation
 
 
 typedef union
 {
-    char    raw[FRAME_PAYLOAD_SIZE];
+    char    raw[FRAME_PAYLOAD_SIZE + ADDITIONAL_OVERHEAD];
 
     Header  header;
-    Data    data;
+    Chunk    chunk;
 }Packet;
 
 void verifyChecksum(void);

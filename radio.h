@@ -46,26 +46,26 @@ struct sockaddr_in LocalService;
 
 typedef struct
 {
-    ushort src;
-    ushort dst;
-    u_int8_t lenght;
-    u_int8_t protocol;
-}Frame_Header;
+    ushort src; // 2 bytes allocated
+    ushort dst; // 2 bytes allocated
+    u_int8_t lenght; // 1 bytes allocated
+    u_int8_t protocol; // 1 bytes allocated
+}Frame_Header; // 6 bytes total allocated for this structure
 
 typedef struct
 {
-    char            preAmble[10];
-    uint            unique_adress;
-    Frame_Header    header;
-    char            payload[128];
-    ushort          checksum;
+    char            preAmble[10]; // 10 bytes allocated
+    uint            unique_adress; // 4 bytes allocated
+    Frame_Header    header; // 6 bytes allocated
+    char            payload[128]; // 128 bytes allocated
+    ushort          checksum; // 2 bytes allocated
 
-}Frame;
+}Frame; // 10 + 4 + 6 + 128 + 2 = 150 bytes total allocated for this structure
 
 typedef union
 {
-    char    raw[FRAME_PAYLOAD_SIZE + FRAME_OVERHEAD_SIZE];
-    Frame   frame;
+    char    raw[150];
+    Frame   frame; // 150 bytes allocated
 
 }Frame_PTU;
 
@@ -78,7 +78,7 @@ int radio_init ( int addr );
 int radio_send ( int dst , char * data , int len );
 int radio_recv ( int * src , char * data , int to_ms);
 
-void cp_data(char*dst,char*src,int src_len);
+void cp_data(char*dst, char*src, uint src_len);
 
 char *integertoc(uint number);
 # endif // _RADIO_H_

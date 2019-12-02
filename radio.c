@@ -102,11 +102,11 @@ int radio_recv(int *src, char *data, int to_ms)
             return (int) bytes_recieved;
     }
 
-    Frame_PTU frame;
+    Frame_PTU recieved_frame;
 
     start_timer();
     while (time_elapsed() <= to_ms || to_ms < 0) {
-        ssize_t bytes_recieved = recv(mySocket,frame.raw,FRAME_PAYLOAD_SIZE,0);
+        ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_PAYLOAD_SIZE,0);
         if(bytes_recieved > 0)
         {
             block(950);
@@ -114,8 +114,8 @@ int radio_recv(int *src, char *data, int to_ms)
         }
     }
 
-    *src = htobe16(frame.frame.header.src);
-    cp_data(data,frame.frame.payload,FRAME_PAYLOAD_SIZE);
+    *src = htobe16(recieved_frame.frame.header.src);
+    cp_data(data,recieved_frame.frame.payload,FRAME_PAYLOAD_SIZE);
 
     return TIMEOUT; // TIMEOUT
 }
@@ -134,7 +134,7 @@ unsigned int permuteQPR(unsigned int x)
     return (x <= prime / 2) ? residue : prime - residue;
 }
 
-void cp_data(char*dst, char*src, int src_len)
+void cp_data(char*dst, char*src, uint src_len)
 {
     for (int i = 0; i < src_len; ++i)
         *(dst + i) = *(src + i);
