@@ -154,8 +154,6 @@ int ecg_init(int addr)
 
 int await_reply(Packet *buffer,int adrs_from,int timeout,int connection_attempts, int len)
 {
-    if(adrs_from == 0)
-        adrs_from = remote.ip_byte_adrs;
     int status = 0;
     while((status = radio_recv(&adrs_from,buffer->raw,timeout))<0)
     {

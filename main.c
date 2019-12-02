@@ -38,10 +38,9 @@ int main(int argc, char *argv[])
     printf("\nSource port: %d\n",src_port);
     printf("Destination port: %d\n",dst_port);
     printf("DATA: %s\n",data);
-    /*
+
     ecg_init(src_port);
     ecg_send(dst_port,data,sizeof (data),5000);
 
-    */
     return 0;
 }

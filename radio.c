@@ -82,13 +82,16 @@ int radio_recv(int *src, char *data, int to_ms)
         return INVALID_ADRESS; // INVALID_ADRESS
     }
 
-    remoteService.sin_family = AF_INET;
-    remoteService.sin_port = (in_port_t) *src;
+    /*
+     * Connect the socket
+     *
+     * Note: Im not sure whether adress structure should contain the listening port
+     *  or is just a temporary container for the peer adress to be stored.
+     */
 
-    int connection = connect(mySocket,(struct sockaddr *)&remoteService,sizeof (remoteService));
+    int connection = connect(mySocket,(struct sockaddr *)&LocalService,sizeof (LocalService));
     if(connection < 0)
         return CONNECTION_ERROR; // CONNECTION_ERROR
-
 
     if(to_ms == 0)
     {
@@ -111,6 +114,7 @@ int radio_recv(int *src, char *data, int to_ms)
         }
     }
 
+    *src = htobe16(frame.frame.header.src);
     cp_data(data,frame.frame.payload,FRAME_PAYLOAD_SIZE);
 
     return TIMEOUT; // TIMEOUT
