@@ -12,20 +12,20 @@ int main(int argc, char *argv[])
 {
     char *data = malloc(sizeof (char*));
 
-    uint src_port = 42000;
-    uint dst_port = 45000;
+    ushort src_port = 22500;
+    ushort dst_port = 45000;
 
     for (int i = 1; i < argc; i++) {
        if(strncmp(PORT_SRC_ARG,argv[i],sizeof (PORT_SRC_ARG)) == 0)
        {
            printf("SRC branch:  %d\n",i);
-           src_port = (uint) strtol(argv[i + 1],NULL,10);
+           src_port = (ushort) strtol(argv[i + 1],NULL,10);
            i = (i < argc) ? ++i : i;
        }
        else if(strncmp(PORT_DST_ARG,argv[i],sizeof (PORT_DST_ARG)) == 0)
        {
            printf("DST branch: %d\n",i);
-           dst_port = (uint) strtol(argv[i+1],NULL,10);
+           dst_port = (ushort) strtol(argv[i+1],NULL,10);
            i = (i < argc) ? ++i : i;
        }
        else if(strncmp(MESSAGE,argv[i],sizeof (MESSAGE)) == 0)
@@ -38,9 +38,9 @@ int main(int argc, char *argv[])
     printf("\nSource port: %d\n",src_port);
     printf("Destination port: %d\n",dst_port);
     printf("DATA: %s\n",data);
-
-    ecg_init(src_port);
-    ecg_send(dst_port,data,sizeof (data),5000);
+    char *recv_data = NULL;
+    ecg_init((int) src_port);
+    ecg_recieve(0,recv_data,0,2500);
 
     return 0;
 }

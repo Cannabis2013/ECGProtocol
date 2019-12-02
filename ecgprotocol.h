@@ -99,7 +99,7 @@ typedef union
 void verifyChecksum(void);
 
 int try_send(Packet *packet, int adrs_reciever, int connection_attempts, int len);
-int await_reply(Packet *buffer, int adrs_from, int timeout, int connection_attempts, int len);
+int await_reply(Packet *buffer, int timeout, int connection_attempts, int len);
 
 
 

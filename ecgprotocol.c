@@ -27,7 +27,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
          */
 
         Packet recieved_packet;
-        if(await_reply(&recieved_packet,dst,to_ms,CONNECTION_AWAIT_ATTEMPT,TOTAL_PAYLOAD_SIZE) < 0)
+        if(await_reply(&recieved_packet,to_ms,CONNECTION_AWAIT_ATTEMPT,TOTAL_PAYLOAD_SIZE) < 0)
             return error.error_code;
 
         if(recieved_packet.header.type.type == ACK)
@@ -62,7 +62,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 
         // Wait for reply to esnure data has arrived at its destination safely
         Packet reply;
-        if(await_reply(&reply,0,to_ms,CONNECTION_AWAIT_ATTEMPT,FRAME_PAYLOAD_SIZE) < 0)
+        if(await_reply(&reply,to_ms,CONNECTION_AWAIT_ATTEMPT,FRAME_PAYLOAD_SIZE) < 0)
             return error.error_code;
 
         if(reply.header.type.type == P_ACK)
@@ -87,7 +87,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         return error.error_code;
 
     Packet recieved_packet;
-    if(await_reply(&recieved_packet,remote.ip_byte_adrs,to_ms,CONNECTION_FINAL_ATTEMP,FRAME_PAYLOAD_SIZE) < 0)
+    if(await_reply(&recieved_packet,to_ms,CONNECTION_FINAL_ATTEMP,FRAME_PAYLOAD_SIZE) < 0)
         return error.error_code;
 
     channel_established = 0;
@@ -96,14 +96,13 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 
 int ecg_recieve(int src, char *data,int len, int to_ms)
 {
-
     char* accumulated_data = NULL;
     uint total_chunk_recieved = 0;
 
     while (1) {
         Packet recieved_packet;
 
-        if(!await_reply(&recieved_packet,src,to_ms,CONNECTION_LISTEN_ATTEMPT,FRAME_PAYLOAD_SIZE))
+        if(!await_reply(&recieved_packet,to_ms,CONNECTION_LISTEN_ATTEMPT,FRAME_PAYLOAD_SIZE))
             return error.error_code;
 
         if(recieved_packet.header.type.type == INIT)
@@ -158,9 +157,9 @@ int ecg_init(int addr)
     return status;
 }
 
-int await_reply(Packet *buffer,int adrs_from,int timeout,int connection_attempts, int len)
+int await_reply(Packet *buffer,int timeout,int connection_attempts, int len)
 {
-    int status = 0;
+    int status = 0, adrs_from;
     while((status = radio_recv(&adrs_from,buffer->raw,timeout)) < 0)
     {
         if(connection_attempts == 0)

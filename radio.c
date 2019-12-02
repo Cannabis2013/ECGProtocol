@@ -19,8 +19,15 @@ int radio_init(int addr)
         return SOCKET_ERROR;
     }
 
-    fcntl(mySocket,F_SETFL,O_NONBLOCK);
 
+    if(bind(mySocket,(struct sockaddr *)&LocalService,sizeof (LocalService)) == -1)
+    {
+        // Error handling
+        printf("Shit happens");
+        exit(-1);
+    }
+
+    //fcntl(mySocket,F_SETFL,O_NONBLOCK);
     return 0;
 }
 
@@ -70,32 +77,13 @@ int radio_send(int dst, char *data, int len)
 
 int radio_recv(int *src, char *data, int to_ms)
 {
-    /*
-     * TODO: Need to implement some error functionality
-     */
 
-    // Check if adress is valid and initialize struct for later use
     struct sockaddr_in remoteService;
-    if(inet_aton(LOCALHOST,&remoteService.sin_addr) == 0 || *src < 100 || *src > 60000)
-    {
-        printf("%s","Not a valid IPv4 adress! Did you enter your household adress you idiot?");
-        return INVALID_ADRESS; // INVALID_ADRESS
-    }
-
-    /*
-     * Connect the socket
-     *
-     * Note: Im not sure whether adress structure should contain the listening port
-     *  or is just a temporary container for the peer adress to be stored.
-     */
-
-    int connection = connect(mySocket,(struct sockaddr *)&LocalService,sizeof (LocalService));
-    if(connection < 0)
-        return CONNECTION_ERROR; // CONNECTION_ERROR
+    remoteService.sin_family = AF_INET;
 
     if(to_ms == 0)
     {
-        ssize_t bytes_recieved = recv(mySocket,data,FRAME_PAYLOAD_SIZE,0);
+        ssize_t bytes_recieved = recvfrom(mySocket,data,FRAME_PAYLOAD_SIZE,0,(struct sockaddr *)&remoteService,sizeof (remoteService));
         if(bytes_recieved <= 0)
             return TIMEOUT;
         else
@@ -106,7 +94,8 @@ int radio_recv(int *src, char *data, int to_ms)
 
     start_timer();
     while (time_elapsed() <= to_ms || to_ms < 0) {
-        ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_PAYLOAD_SIZE,0);
+        ssize_t bytes_recieved = recvfrom(mySocket,recieved_frame.raw,FRAME_PAYLOAD_SIZE,MSG_WAITALL,(struct sockaddr *)&remoteService,sizeof (remoteService));
+        printf("%lld\n",bytes_recieved);
         if(bytes_recieved > 0)
         {
             block(950);
