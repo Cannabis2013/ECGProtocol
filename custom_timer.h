@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <math.h>
+#include <stdlib.h>
 
 static long long _timestamp_sec;
 static long long _timestamp_usec;

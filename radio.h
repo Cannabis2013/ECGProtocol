@@ -13,38 +13,90 @@
 #ifndef RADIO_H
 #define RADIO_H
 
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-#include <stdlib.h>
 #include <uuid/uuid.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <math.h>
 
 #include "custom_timer.h"
 
-#define FRAME_PAYLOAD_SIZE 72
+// Used to silence warnings related to unused variables
+#define VAR_UNUSED(X) X = X
 
-// We may find a way to generate a unique host adress for each devices
+#define FRAME_SIZE 157 // Total size of the frame to be transmitted
+#define FRAME_PAYLOAD_SIZE 128 // Raw data size
+#define CHUNK_SIZE 135 // Raw data size + additional meta overhead
+
+// Device adress related
 #define LOCALHOST "127.0.0.1"
 #define LOCALADRESS 55000
 
+#define AWAIT_CONTIGUOUS 0
+#define AWAIT_TIMEOUT 1
 
-/* This part isn't so easy. We assume that the radio chip has its own unique adressing
- * in forms of a number that is ordered by manufaction
- */
+#define SEED 0
+uint unique_adress;
 
-#define CHIP_NUMBER = 0
-#define UNIQUE_ADRESS = permuteQPR(permuQPR(CHIP_NUMBER) )^0x5bf03635;
+typedef struct
+{
+    char err_msg[128];
+    int code;
+}radio_err;
 
+radio_err radio_error;
+
+struct sockaddr_in LocalService;
+
+// The various return types when recieveing or sending packets/frames
 #define TIMEOUT -1
 #define CONNECTION_ERROR -2
 #define SOCKET_ERROR -3
 #define INVALID_ADRESS -4
+#define INBOUND_REQUEST_IGNORED -5
 
 
-static struct sockaddr_in LocalService;
+// Used for ensuring one peer-to-peer relation at a time
+typedef struct
+{
+    uint peer_id;
+    ushort peer_adrs;
+    int channel_established;
+}REMOTE_META;
+
+REMOTE_META remote;
+
+
+typedef struct
+{
+    ushort src; // 2 bytes allocated
+    ushort dst; // 2 bytes allocated
+    u_int8_t lenght; // 1 bytes allocated
+    u_int8_t protocol; // 1 bytes allocated
+}Frame_Header; // 6 bytes total allocated for this structure
+
+typedef struct
+{
+    char            preAmble[10]; // 10 bytes allocated
+    uint            unique_adress; // 4 bytes allocated
+    Frame_Header    header; // 6 bytes allocated
+    char            payload[CHUNK_SIZE]; // 135 bytes allocated
+    ushort          checksum; // 2 bytes allocated
+
+}Frame; // 10 + 4 + 6 + 135 + 2 = 157 bytes total allocated for this structure
+
+typedef union
+{
+    char    raw[FRAME_SIZE];
+    Frame   frame; // 162 bytes allocated
+
+}Frame_PTU;
+
+
 static int mySocket;
 
 unsigned int permuteQPR(unsigned int x);
@@ -53,5 +105,7 @@ int radio_init ( int addr );
 int radio_send ( int dst , char * data , int len );
 int radio_recv ( int * src , char * data , int to_ms);
 
+void cp_data(char*dst, char*src, uint src_len);
 
+char *integertoc(uint number);
 # endif // _RADIO_H_
