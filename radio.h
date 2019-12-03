@@ -39,9 +39,16 @@
 #define AWAIT_CONTIGUOUS 0
 #define AWAIT_TIMEOUT 1
 
-
 #define SEED 0
 uint unique_adress;
+
+typedef struct
+{
+    char err_msg[128];
+    int code;
+}radio_err;
+
+radio_err radio_error;
 
 struct sockaddr_in LocalService;
 
@@ -56,8 +63,8 @@ struct sockaddr_in LocalService;
 // Used for ensuring one peer-to-peer relation at a time
 typedef struct
 {
-    uint unique_adrs;
-    ushort ip_byte_adrs;
+    uint peer_id;
+    ushort peer_adrs;
     int channel_established;
 }REMOTE_META;
 

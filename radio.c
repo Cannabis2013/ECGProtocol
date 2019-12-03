@@ -35,20 +35,23 @@ int radio_init(int addr)
 
 int radio_send(int dst, char *data, int len)
 {
-    VAR_UNUSED(len);
-
     // Initialize the frame
-    Frame_PTU frame;
+    Frame_PTU ptu;
 
-    frame.frame.header.src = htole16(LocalService.sin_port);
-    frame.frame.header.dst = (ushort) dst;
-    frame.frame.header.lenght = FRAME_PAYLOAD_SIZE; // Size of raw data
-    frame.frame.unique_adress = unique_adress;
+    ptu.frame.header.src = htole16(LocalService.sin_port);
+    ptu.frame.header.dst = (ushort) dst;
+    ptu.frame.header.lenght = FRAME_PAYLOAD_SIZE; // Size of raw data
+    ptu.frame.unique_adress = unique_adress;
 
-    cp_data(frame.frame.payload,data,CHUNK_SIZE);
+    cp_data(ptu.frame.payload,data,(uint) len);
 
     if(mySocket < 0)
-        return SOCKET_ERROR;
+    {
+        uint size_of_msg = sizeof ("Socket not initialized. Please call radio_init() before calling radio_send().");
+        cp_data(radio_error.err_msg,"Socket not initialized. Please call radio_init() before calling radio_send().",size_of_msg);
+        radio_error.code = SOCKET_ERROR;
+        return radio_error.code;
+    }
 
     // Check if adress is valid and initialize struct for later use
     struct sockaddr_in remoteService;
@@ -75,7 +78,7 @@ int radio_send(int dst, char *data, int len)
     if(connection < 0)
         return CONNECTION_ERROR;
 
-    int bytes_send = (int) send(mySocket,frame.raw,(uint) FRAME_SIZE,0);
+    int bytes_send = (int) send(mySocket,ptu.raw,(uint) FRAME_SIZE,0);
     block(950); // Assuming the above operations took about 50ms
 
     return bytes_send;
@@ -90,13 +93,13 @@ int radio_recv(int *src, char *data, int to_ms)
         ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_SIZE,MSG_DONTWAIT);
 
         uint magic_key = recieved_frame.frame.unique_adress;
-        if(remote.channel_established == 1 && remote.unique_adrs != magic_key)
+        if(remote.channel_established == 1 && remote.peer_id != magic_key)
             return INBOUND_REQUEST_IGNORED;
 
         if(bytes_recieved > 0)
         {
             *src = htobe16(recieved_frame.frame.header.src);
-
+            remote.peer_id = recieved_frame.frame.unique_adress;
             cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
             block(1000);
         }
@@ -110,7 +113,7 @@ int radio_recv(int *src, char *data, int to_ms)
 
         uint magic_key = recieved_frame.frame.unique_adress;
 
-        if(remote.channel_established == 1 && remote.unique_adrs != magic_key)
+        if(remote.channel_established == 1 && remote.peer_id != magic_key)
             return INBOUND_REQUEST_IGNORED;
 
         if(bytes_recieved > 0)

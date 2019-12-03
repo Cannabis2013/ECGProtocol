@@ -51,11 +51,11 @@ static Error error;
  */
 
 #define CHUNK '0'
-#define META '1'
-#define INIT '2'
-#define ACK '3'
-#define P_ACK '4'
-#define LAST_CHUNK '5'
+#define INIT '1'
+#define ACK '2'
+#define P_ACK '3'
+#define COMPLETE '4'
+#define P_CHECKSUM_FAIL '5'
 
 typedef struct
 {
@@ -69,7 +69,6 @@ typedef struct
     ushort  dst; // Allocates 2 bytes for destination adress
     uint    total_size; // Allocates 4 bytes for total chunk size
     char    protocol; // Allocates 1 byte for protocol identification
-    unsigned int magic_key; // Allocates 4 byres for unique identification
 
 }Header;
 
@@ -78,7 +77,7 @@ typedef struct
     Type    type; // Allocates 1 byte
     char    data[FRAME_PAYLOAD_SIZE]; // 128 bytes allocated
     uint    chunk_size; // Allocates 4 bytes
-    ushort    checksum; // Allocates 2 bytes
+    ushort  checksum; // Allocates 2 bytes
 }Chunk; // Allocates 135 bytes
 
 

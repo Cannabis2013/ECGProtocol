@@ -24,13 +24,12 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     initial_packet.header.src = (ushort) htobe16(LocalService.sin_port);
     initial_packet.header.dst = (ushort) dst;
     initial_packet.header.total_size = (uint) len;
-    initial_packet.header.magic_key = unique_adress;
     initial_packet.header.protocol = IPPROTO_UDP;
 
     int attempts = CONNECTION_INIT_ATTEMPT;
 
     // Establish handshake. Try this in 4 attempts
-    while(channel_established == 0)
+    while(remote.channel_established == 0)
     {
         if(attempts < 0)
             return CONNECTION_ERROR;
@@ -50,9 +49,8 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 
         if(recieved_packet.header.type.type == ACK)
         {
-            remote.unique_adrs = recieved_packet.header.magic_key;
-            remote.ip_byte_adrs = recieved_packet.header.src;
-            channel_established = 1;
+            remote.peer_adrs = recieved_packet.header.src;
+            remote.channel_established = 1;
         }
         attempts--;
     }
@@ -75,9 +73,7 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         packet.chunk = d;
         packet.chunk.chunk_size = packet_len;
 
-        // NOTE: Still need to implement integrity verification
-
-        if(try_send(&packet,remote.ip_byte_adrs,CONNECTION_SEND_ATTEMPT) <0)
+        if(try_send(&packet,remote.peer_adrs,CONNECTION_SEND_ATTEMPT) <0)
             return error.error_code;
 
         // Wait for reply to esnure data has arrived at its destination safely
@@ -94,8 +90,8 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     Packet packet_complete;
     Header final_transmission_header;
     final_transmission_header.src = (ushort) LOCALADRESS;
-    final_transmission_header.dst = remote.ip_byte_adrs;
-    final_transmission_header.type.type = LAST_CHUNK;
+    final_transmission_header.dst = remote.peer_adrs;
+    final_transmission_header.type.type = COMPLETE;
     packet_complete.header = final_transmission_header;
 
     /* Reaching this state we have to assume the whole pack has succesfully been transmitted.
@@ -103,14 +99,27 @@ int ecg_send(int dst, char *data, int len,int to_ms)
      * to 8.
      */
 
-    if(try_send(&packet_complete,remote.ip_byte_adrs,CONNECTION_FINAL_ATTEMP) <0)
+    AGAIN :
+    if(try_send(&packet_complete,remote.peer_adrs,CONNECTION_FINAL_ATTEMP) <0)
         return error.error_code;
 
     Packet recieved_packet;
     if(await_reply(&recieved_packet,to_ms,CONNECTION_FINAL_ATTEMP,AWAIT_TIMEOUT) < 0)
         return error.error_code;
 
-    channel_established = 0;
+    Packet final_reply;
+    if(await_reply(&final_reply,to_ms,CONNECTION_AWAIT_ATTEMPT,AWAIT_TIMEOUT) < 0)
+        return error.error_code;
+
+    if(final_reply.header.type.type == ACK)
+    {
+        remote.channel_established = 0;
+        remote.peer_adrs = 0;
+        remote.peer_id = 0;
+    }
+    else
+        goto AGAIN;
+
     return len;
 }
 
@@ -130,43 +139,57 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
         if(recieved_packet.header.type.type == INIT)
         {
             // Saving
-            remote.unique_adrs = recieved_packet.header.magic_key;
-            remote.ip_byte_adrs = recieved_packet.header.src;
+            remote.peer_adrs = recieved_packet.header.src;
             remote.channel_established = 1;
 
             uint total_pending_size = recieved_packet.header.total_size;
             accumulated_data = malloc(total_pending_size);
 
-            Packet ACK_PACKET;
-            ACK_PACKET.header.type.type = ACK;
-            ACK_PACKET.header.src = (ushort) htobe16(LocalService.sin_port);
-            ACK_PACKET.header.dst = (ushort) src;
-            ACK_PACKET.header.magic_key = unique_adress;
+            Packet p_ack;
+            p_ack.header.type.type = ACK;
+            p_ack.header.src = (ushort) htobe16(LocalService.sin_port);
+            p_ack.header.dst = (ushort) src;
 
-            if(!try_send(&ACK_PACKET,remote.ip_byte_adrs,CONNECTION_INIT_ATTEMPT))
+            if(!try_send(&p_ack,remote.peer_adrs,CONNECTION_INIT_ATTEMPT))
                 return error.error_code;
 
-        }
-        else if(recieved_packet.header.type.type == META)
-        {
-            printf("META DATA RECIEVED");
         }
         else if(recieved_packet.chunk.type.type == CHUNK)
         {
             // TODO: Again, we have to implement some kind of integrety verification.
-            uint chunk_size = recieved_packet.chunk.chunk_size;
-            cp_data(accumulated_data + total_chunk_recieved,recieved_packet.chunk.data,chunk_size);
-            total_chunk_recieved += recieved_packet.chunk.chunk_size;
 
-            Packet p_ack_packet;
-            p_ack_packet.header.type.type = P_ACK;
+            if(recieved_packet.chunk.checksum != generateChecksum(recieved_packet.chunk.data,KEY2))
+            {
+                Packet p_fail_packet;
+                p_fail_packet.header.type.type = P_CHECKSUM_FAIL;
+                if(!try_send(&p_fail_packet,remote.peer_adrs,CONNECTION_INIT_ATTEMPT))
+                    return error.error_code;
+            }
+            else
+            {
+                uint chunk_size = recieved_packet.chunk.chunk_size;
+                cp_data(accumulated_data + total_chunk_recieved,recieved_packet.chunk.data,chunk_size);
+                total_chunk_recieved += recieved_packet.chunk.chunk_size;
 
-            if(try_send(&p_ack_packet,remote.ip_byte_adrs,CONNECTION_SEND_ATTEMPT))
-                return error.error_code;
+                Packet p_ack_packet;
+                p_ack_packet.header.type.type = P_ACK;
+
+                if(try_send(&p_ack_packet,remote.peer_adrs,CONNECTION_SEND_ATTEMPT))
+                    return error.error_code;
+            }
         }
 
-        else if (recieved_packet.header.type.type == LAST_CHUNK) {
+        else if (recieved_packet.header.type.type == COMPLETE) {
             cp_data(data,accumulated_data,total_chunk_recieved);
+            Packet p_ack;
+            p_ack.header.type.type = ACK;
+            if(!try_send(&p_ack,remote.peer_adrs,CONNECTION_FINAL_ATTEMP))
+                return error.error_code;
+
+            remote.channel_established = 0;
+            remote.peer_id = -1;
+            remote.peer_adrs = -1;
+            break;
         }
     }
 
@@ -175,6 +198,10 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
 
 int ecg_init(int addr)
 {
+    remote.channel_established = 0;
+    remote.peer_id = 0;
+    remote.peer_adrs = 0;
+
     int status = radio_init(addr);
     if(status == INVALID_ADRESS)
     {
@@ -193,30 +220,20 @@ int await_reply(Packet *buffer,int timeout,int connection_attempts, int mode)
     int status = 0, adrs_from;
     while((status = radio_recv(&adrs_from,buffer->raw,timeout)) < 0)
     {
-        if(connection_attempts == 0)
-        {
-            error.error_code = CONNECTION_ERROR;
-            strcpy(error.error_description,"Connection lost after 4 attemps. Cancelling transmission.");
-
-            return CONNECTION_ERROR;
-        }
-
         if(status == INVALID_ADRESS)
         {
             error.error_code = INVALID_ADRESS;
             strcpy(error.error_description,"Invalid adress provided.");
             return INVALID_ADRESS;
         }
-        else if(status == CONNECTION_ERROR)
-            connection_attempts--;
-
-        else if(status == TIMEOUT && mode  == AWAIT_TIMEOUT)
+        else if(status == TIMEOUT && mode  == AWAIT_TIMEOUT && connection_attempts == 0)
         {
             error.error_code = TIMEOUT;
             strcpy(error.error_description,"Connection timed out. Remote is probably offline.");
 
             return TIMEOUT;
         }
+        connection_attempts--;
     }
 
     return status;
@@ -226,7 +243,7 @@ int try_send(Packet *packet,int adrs_reciever, int connection_attempts)
 {
     int bytes_send = 0;
 
-    while((bytes_send = radio_send(adrs_reciever,packet->raw,0)) < 0)
+    while((bytes_send = radio_send(adrs_reciever,packet->raw,CHUNK_SIZE)) < 0)
     {
         if(bytes_send == INVALID_ADRESS)
         {
