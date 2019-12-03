@@ -17,6 +17,10 @@
  *      - We have to implements some checksum algorithm we first have to figure out.
  */
 
+#define KEY1 0x9A
+#define KEY2 0xB8
+
+
 static int channel_established = 0;
 
 /*
@@ -34,14 +38,6 @@ static Error error;
 
 // Remote meta information structure
 
-typedef struct
-{
-    uint unique_adrs;
-    ushort ip_byte_adrs;
-}REMOTE_META;
-
-REMOTE_META static remote;
-
 #define CONNECTION_INIT_ATTEMPT 4
 #define CONNECTION_SEND_ATTEMPT 3
 #define CONNECTION_AWAIT_ATTEMPT 3
@@ -49,9 +45,6 @@ REMOTE_META static remote;
 #define CONNECTION_LISTEN_ATTEMPT 1
 
 #define type_t char
-
-#define ADDITIONAL_OVERHEAD 4
-#define TOTAL_PAYLOAD_SIZE (FRAME_PAYLOAD_SIZE + ADDITIONAL_OVERHEAD)
 
 /*
  * PTU types
@@ -85,23 +78,22 @@ typedef struct
     Type    type; // Allocates 1 byte
     char    data[FRAME_PAYLOAD_SIZE]; // 128 bytes allocated
     uint    chunk_size; // Allocates 4 bytes
-}Chunk; // At least 5 bytes allocation
+    ushort    checksum; // Allocates 2 bytes
+}Chunk; // Allocates 135 bytes
 
 
 typedef union
 {
-    char    raw[FRAME_PAYLOAD_SIZE + ADDITIONAL_OVERHEAD];
+    char    raw[CHUNK_SIZE];
 
     Header  header;
     Chunk    chunk;
 }Packet;
 
-void verifyChecksum(void);
+ushort generateChecksum(char *msg, ushort key);
 
-int try_send(Packet *packet, int adrs_reciever, int connection_attempts, int len);
-int await_reply(Packet *buffer, int timeout, int connection_attempts, int len);
-
-
+int try_send(Packet *packet, int adrs_reciever, int connection_attempts);
+int await_reply(Packet *buffer, int timeout, int connection_attempts, int mode);
 
 int ecg_init ( int addr );
 int ecg_send(int dst, char *data, int len, int to_ms);

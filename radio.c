@@ -5,6 +5,8 @@ int radio_init(int addr)
     // NOTE: Has to find an alternative solution
     unique_adress = permuteQPR((permuteQPR(1) + SEED) ^ 0x5bf03635);
 
+    remote.channel_established = 0;
+
     if(inet_aton(LOCALHOST,&LocalService.sin_addr) == 0 || addr < 1024 || addr > 65336)
     {
         printf("%s","Not a valid IPv4 adress! Did you enter your household adress you idiot?");
@@ -33,16 +35,17 @@ int radio_init(int addr)
 
 int radio_send(int dst, char *data, int len)
 {
+    VAR_UNUSED(len);
 
     // Initialize the frame
     Frame_PTU frame;
 
     frame.frame.header.src = htole16(LocalService.sin_port);
     frame.frame.header.dst = (ushort) dst;
-    frame.frame.header.lenght = FRAME_PAYLOAD_SIZE;
+    frame.frame.header.lenght = FRAME_PAYLOAD_SIZE; // Size of raw data
     frame.frame.unique_adress = unique_adress;
 
-    cp_data(frame.frame.payload,data,FRAME_PAYLOAD_SIZE);
+    cp_data(frame.frame.payload,data,CHUNK_SIZE);
 
     if(mySocket < 0)
         return SOCKET_ERROR;
@@ -52,24 +55,27 @@ int radio_send(int dst, char *data, int len)
 
     if(inet_aton(LOCALHOST,&remoteService.sin_addr) == 0)
     {
-        printf("%s","Not a valid IPv4 adress! Did you enter your household adress you idiot?");
+        printf("%s","Not a valid IPv4 adress!");
         return INVALID_ADRESS;
     }
 
-    // Check if the port number adress is wihthin the desired port range
+    // Check if the port number adress is within the desired port range
     if(dst < 1024 || dst > 65336)
     {
-        printf("%s","Not a valid port. Did you enter the addres of your butt you dum liberal?");
+        printf("%s","Not a valid port.");
         return INVALID_ADRESS;
     }
 
     remoteService.sin_family = AF_INET;
     remoteService.sin_port = htons((uint16_t)dst);
 
+    // Establish connection
+    // NOTE: This is not the common UDP way of transmitting data; but it provides us with the opportunity to check whether the connection can be done.
     int connection = connect(mySocket,(struct sockaddr *)&remoteService,sizeof (remoteService));
     if(connection < 0)
         return CONNECTION_ERROR;
-    int bytes_send = (int) send(mySocket,frame.raw,(uint) len,0);
+
+    int bytes_send = (int) send(mySocket,frame.raw,(uint) FRAME_SIZE,0);
     block(950); // Assuming the above operations took about 50ms
 
     return bytes_send;
@@ -77,34 +83,44 @@ int radio_send(int dst, char *data, int len)
 
 int radio_recv(int *src, char *data, int to_ms)
 {
-
-    struct sockaddr_in remoteService;
-    remoteService.sin_family = AF_INET;
+    Frame_PTU recieved_frame;
 
     if(to_ms == 0)
     {
-        ssize_t bytes_recieved = recvfrom(mySocket,data,FRAME_PAYLOAD_SIZE,0,(struct sockaddr *)&remoteService,sizeof (remoteService));
-        if(bytes_recieved <= 0)
-            return TIMEOUT;
-        else
-            return (int) bytes_recieved;
+        ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_SIZE,MSG_DONTWAIT);
+
+        uint magic_key = recieved_frame.frame.unique_adress;
+        if(remote.channel_established == 1 && remote.unique_adrs != magic_key)
+            return INBOUND_REQUEST_IGNORED;
+
+        if(bytes_recieved > 0)
+        {
+            *src = htobe16(recieved_frame.frame.header.src);
+
+            cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
+            block(1000);
+        }
+        return (int) bytes_recieved;
     }
 
-    Frame_PTU recieved_frame;
 
     start_timer();
     while (time_elapsed() <= to_ms || to_ms < 0) {
-        ssize_t bytes_recieved = recvfrom(mySocket,recieved_frame.raw,FRAME_PAYLOAD_SIZE,MSG_WAITALL,(struct sockaddr *)&remoteService,sizeof (remoteService));
-        printf("%lld\n",bytes_recieved);
+        ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_SIZE,MSG_DONTWAIT);
+
+        uint magic_key = recieved_frame.frame.unique_adress;
+
+        if(remote.channel_established == 1 && remote.unique_adrs != magic_key)
+            return INBOUND_REQUEST_IGNORED;
+
         if(bytes_recieved > 0)
         {
+            *src = htobe16(recieved_frame.frame.header.src);
+            cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
             block(950);
             return (int) bytes_recieved;
         }
     }
-
-    *src = htobe16(recieved_frame.frame.header.src);
-    cp_data(data,recieved_frame.frame.payload,FRAME_PAYLOAD_SIZE);
 
     return TIMEOUT; // TIMEOUT
 }

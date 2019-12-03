@@ -25,24 +25,44 @@
 
 #include "custom_timer.h"
 
-#define FRAME_PAYLOAD_SIZE 128
-#define FRAME_OVERHEAD_SIZE 22
-#define TRANSFER_RATE_BITS 19200
-#define TRANSFER_RATE_BYTES (TRANSFER_RATE_BITS/8)
+// Used to silence warnings related to unused variables
+#define VAR_UNUSED(X) X = X
 
-// We may find a way to generate a unique host adress for each devices
+#define FRAME_SIZE 157 // Total size of the frame to be transmitted
+#define FRAME_PAYLOAD_SIZE 128 // Raw data size
+#define CHUNK_SIZE 135 // Raw data size + additional meta overhead
+
+// Device adress related
 #define LOCALHOST "127.0.0.1"
 #define LOCALADRESS 55000
+
+#define AWAIT_CONTIGUOUS 0
+#define AWAIT_TIMEOUT 1
 
 
 #define SEED 0
 uint unique_adress;
 
 struct sockaddr_in LocalService;
+
+// The various return types when recieveing or sending packets/frames
 #define TIMEOUT -1
 #define CONNECTION_ERROR -2
 #define SOCKET_ERROR -3
 #define INVALID_ADRESS -4
+#define INBOUND_REQUEST_IGNORED -5
+
+
+// Used for ensuring one peer-to-peer relation at a time
+typedef struct
+{
+    uint unique_adrs;
+    ushort ip_byte_adrs;
+    int channel_established;
+}REMOTE_META;
+
+REMOTE_META remote;
+
 
 typedef struct
 {
@@ -57,15 +77,15 @@ typedef struct
     char            preAmble[10]; // 10 bytes allocated
     uint            unique_adress; // 4 bytes allocated
     Frame_Header    header; // 6 bytes allocated
-    char            payload[128]; // 128 bytes allocated
+    char            payload[CHUNK_SIZE]; // 135 bytes allocated
     ushort          checksum; // 2 bytes allocated
 
-}Frame; // 10 + 4 + 6 + 128 + 2 = 150 bytes total allocated for this structure
+}Frame; // 10 + 4 + 6 + 135 + 2 = 157 bytes total allocated for this structure
 
 typedef union
 {
-    char    raw[150];
-    Frame   frame; // 150 bytes allocated
+    char    raw[FRAME_SIZE];
+    Frame   frame; // 162 bytes allocated
 
 }Frame_PTU;
 

@@ -1,25 +1,43 @@
 #include "ecgprotocol.h"
 
+/* We assumes size of data may go beyond the limit of 2400 bits, which is the maximum transfer rate given in this assignment.
+ * We divide data into chunks of each 140 bytes (data + additional meta overhead)
+ * Our protocol resembles to a great extend the behaviour found in the TCP/IP protocol with respect to the stability and reliability it offers.
+ * This means:
+ *      - With every packet send, a reply is required, ensuring data has arrived safely, in order to proceed.
+ *      - The connection consists of three states:
+ *          > INITIAL STATE : Exchange of meta information; also known as  a 'handshake'
+ *          > TRANSFER STATE : Each chunk is fingerprintet with a checksum and send to the reciever
+ *          > FINAL CHUNK STATE : This state indicates a whole packet sendt. Of course, this will be signalled to the end point.
+ *
+ */
+
 int ecg_send(int dst, char *data, int len,int to_ms)
 {
     /*
      * INITIAL STATE
      *  - Establish connection and exchange information between sender and reciever (handshake)
      */
+    // Initialize packet with meta information
+    Packet initial_packet;
+    initial_packet.header.type.type = INIT;
+    initial_packet.header.src = (ushort) htobe16(LocalService.sin_port);
+    initial_packet.header.dst = (ushort) dst;
+    initial_packet.header.total_size = (uint) len;
+    initial_packet.header.magic_key = unique_adress;
+    initial_packet.header.protocol = IPPROTO_UDP;
 
-    if(!channel_established)
+    int attempts = CONNECTION_INIT_ATTEMPT;
+
+    // Establish handshake. Try this in 4 attempts
+    while(channel_established == 0)
     {
-        Packet initial_packet;
-        initial_packet.header.type.type = INIT;
-        initial_packet.header.src = (ushort) htobe16(LocalService.sin_port);
-        initial_packet.header.dst = (ushort) dst;
-        initial_packet.header.total_size = (uint) len;
-        initial_packet.header.magic_key = unique_adress;
-        initial_packet.header.protocol = IPPROTO_UDP;
+        if(attempts < 0)
+            return CONNECTION_ERROR;
 
         // Transmit the packet. Try to do so while obtained result codes indicates error.
 
-        if(try_send(&initial_packet,dst,CONNECTION_SEND_ATTEMPT,TOTAL_PAYLOAD_SIZE) < 0)
+        if(try_send(&initial_packet,dst,CONNECTION_SEND_ATTEMPT) < 0)
             return error.error_code;
 
         /*
@@ -27,15 +45,16 @@ int ecg_send(int dst, char *data, int len,int to_ms)
          */
 
         Packet recieved_packet;
-        if(await_reply(&recieved_packet,to_ms,CONNECTION_AWAIT_ATTEMPT,TOTAL_PAYLOAD_SIZE) < 0)
+        if(await_reply(&recieved_packet,to_ms,CONNECTION_AWAIT_ATTEMPT,AWAIT_TIMEOUT) < 0)
             return error.error_code;
 
         if(recieved_packet.header.type.type == ACK)
         {
             remote.unique_adrs = recieved_packet.header.magic_key;
             remote.ip_byte_adrs = recieved_packet.header.src;
+            channel_established = 1;
         }
-        channel_established = 1;
+        attempts--;
     }
 
     /*
@@ -51,18 +70,19 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         Chunk d;
         d.type.type = CHUNK;
         uint packet_len = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : (uint) residual_data_len;
-        cp_data(d.data,data + str_index,(int) packet_len);
+        cp_data(d.data,data + str_index, packet_len);
+        d.checksum = generateChecksum(d.data,KEY1);
         packet.chunk = d;
         packet.chunk.chunk_size = packet_len;
 
         // NOTE: Still need to implement integrity verification
 
-        if(try_send(&packet,remote.ip_byte_adrs,CONNECTION_SEND_ATTEMPT,TOTAL_PAYLOAD_SIZE) <0)
+        if(try_send(&packet,remote.ip_byte_adrs,CONNECTION_SEND_ATTEMPT) <0)
             return error.error_code;
 
         // Wait for reply to esnure data has arrived at its destination safely
         Packet reply;
-        if(await_reply(&reply,to_ms,CONNECTION_AWAIT_ATTEMPT,FRAME_PAYLOAD_SIZE) < 0)
+        if(await_reply(&reply,to_ms,CONNECTION_AWAIT_ATTEMPT,AWAIT_TIMEOUT) < 0)
             return error.error_code;
 
         if(reply.header.type.type == P_ACK)
@@ -83,11 +103,11 @@ int ecg_send(int dst, char *data, int len,int to_ms)
      * to 8.
      */
 
-    if(try_send(&packet_complete,remote.ip_byte_adrs,CONNECTION_FINAL_ATTEMP,FRAME_PAYLOAD_SIZE) <0)
+    if(try_send(&packet_complete,remote.ip_byte_adrs,CONNECTION_FINAL_ATTEMP) <0)
         return error.error_code;
 
     Packet recieved_packet;
-    if(await_reply(&recieved_packet,to_ms,CONNECTION_FINAL_ATTEMP,FRAME_PAYLOAD_SIZE) < 0)
+    if(await_reply(&recieved_packet,to_ms,CONNECTION_FINAL_ATTEMP,AWAIT_TIMEOUT) < 0)
         return error.error_code;
 
     channel_established = 0;
@@ -96,19 +116,24 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 
 int ecg_recieve(int src, char *data,int len, int to_ms)
 {
+    VAR_UNUSED(len);
+
     char* accumulated_data = NULL;
     uint total_chunk_recieved = 0;
 
     while (1) {
         Packet recieved_packet;
-
-        if(!await_reply(&recieved_packet,to_ms,CONNECTION_LISTEN_ATTEMPT,FRAME_PAYLOAD_SIZE))
+        int bytes_recieved = 0;
+        if((bytes_recieved = await_reply(&recieved_packet,to_ms,CONNECTION_LISTEN_ATTEMPT,AWAIT_CONTIGUOUS)) < 0)
             return error.error_code;
 
         if(recieved_packet.header.type.type == INIT)
         {
+            // Saving
             remote.unique_adrs = recieved_packet.header.magic_key;
             remote.ip_byte_adrs = recieved_packet.header.src;
+            remote.channel_established = 1;
+
             uint total_pending_size = recieved_packet.header.total_size;
             accumulated_data = malloc(total_pending_size);
 
@@ -118,8 +143,13 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
             ACK_PACKET.header.dst = (ushort) src;
             ACK_PACKET.header.magic_key = unique_adress;
 
-            if(!try_send(&ACK_PACKET,remote.ip_byte_adrs,CONNECTION_INIT_ATTEMPT,FRAME_PAYLOAD_SIZE))
+            if(!try_send(&ACK_PACKET,remote.ip_byte_adrs,CONNECTION_INIT_ATTEMPT))
                 return error.error_code;
+
+        }
+        else if(recieved_packet.header.type.type == META)
+        {
+            printf("META DATA RECIEVED");
         }
         else if(recieved_packet.chunk.type.type == CHUNK)
         {
@@ -127,6 +157,12 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
             uint chunk_size = recieved_packet.chunk.chunk_size;
             cp_data(accumulated_data + total_chunk_recieved,recieved_packet.chunk.data,chunk_size);
             total_chunk_recieved += recieved_packet.chunk.chunk_size;
+
+            Packet p_ack_packet;
+            p_ack_packet.header.type.type = P_ACK;
+
+            if(try_send(&p_ack_packet,remote.ip_byte_adrs,CONNECTION_SEND_ATTEMPT))
+                return error.error_code;
         }
 
         else if (recieved_packet.header.type.type == LAST_CHUNK) {
@@ -135,11 +171,6 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
     }
 
     return 0;
-}
-
-void verifyChecksum()
-{
-
 }
 
 int ecg_init(int addr)
@@ -157,7 +188,7 @@ int ecg_init(int addr)
     return status;
 }
 
-int await_reply(Packet *buffer,int timeout,int connection_attempts, int len)
+int await_reply(Packet *buffer,int timeout,int connection_attempts, int mode)
 {
     int status = 0, adrs_from;
     while((status = radio_recv(&adrs_from,buffer->raw,timeout)) < 0)
@@ -179,7 +210,7 @@ int await_reply(Packet *buffer,int timeout,int connection_attempts, int len)
         else if(status == CONNECTION_ERROR)
             connection_attempts--;
 
-        else if(status == TIMEOUT)
+        else if(status == TIMEOUT && mode  == AWAIT_TIMEOUT)
         {
             error.error_code = TIMEOUT;
             strcpy(error.error_description,"Connection timed out. Remote is probably offline.");
@@ -191,11 +222,11 @@ int await_reply(Packet *buffer,int timeout,int connection_attempts, int len)
     return status;
 }
 
-int try_send(Packet *packet,int adrs_reciever, int connection_attempts, int len)
+int try_send(Packet *packet,int adrs_reciever, int connection_attempts)
 {
     int bytes_send = 0;
 
-    while((bytes_send = radio_send(adrs_reciever,packet->raw,len)) < 0)
+    while((bytes_send = radio_send(adrs_reciever,packet->raw,0)) < 0)
     {
         if(bytes_send == INVALID_ADRESS)
         {
@@ -213,4 +244,14 @@ int try_send(Packet *packet,int adrs_reciever, int connection_attempts, int len)
     }
 
     return bytes_send;
+}
+
+ushort generateChecksum(char *msg, ushort key)
+{
+    char sum = 0;
+    char *s;
+    for (s = msg;*s!= 0;s++) {
+        sum ^= *s;
+    }
+    return ((ushort) sum)^key;
 }
