@@ -62,17 +62,13 @@ typedef struct
 typedef struct
 {
     Type    type; // Allocates 1 bytes for type identification
-    ushort  src; // Allocates 2 bytes for source adress
-    ushort  dst; // Allocates 2 bytes for destination adress
-    uint    total_size; // Allocates 4 bytes for total chunk size
-    char    protocol; // Allocates 1 byte for protocol identification
 
-}Header; // Allocates 10 bytes
+}Header; // Allocates 1 bytes
 
 typedef struct
 {
     Type    type; // Allocates 1 byte
-    uint    chunk_size; // Allocates 4 bytes
+    uint    size; // Allocates 4 bytes
     ushort  checksum; // Allocates 2 bytes
     char    data[FRAME_PAYLOAD_SIZE]; // 128 bytes allocated
 }Chunk; // Allocates 135 bytes
@@ -94,6 +90,23 @@ typedef struct
     Packet p_recv;
 }TRANSMIT_DETAILS;
 
+#define CONNECTION_TYPE int
+#define INDBOUND 0
+#define OUTBOUND 1
+
+typedef struct
+{
+    int peer_adrs;
+
+    clock_t session_start_clock;
+    clock_t session_end_clock;
+    clock_t transmission_start_clock;
+    clock_t transmission_end_clock;
+    int bytes_transmitted;
+    CONNECTION_TYPE type;
+}STATISTICS;
+
+STATISTICS session_statistics;
 ushort generateChecksum(char *msg, ushort key);
 
 int send_and_await_reply(Packet*packet, int adrs_reciever, int connection_attempts, int timeout, int mode, TRANSMIT_DETAILS *t);
@@ -101,7 +114,7 @@ int try_send(Packet *packet, int adrs_reciever, int connection_attempts);
 int await_reply(Packet *buffer, int timeout, int mode);
 
 int ecg_init ( int addr );
-int ecg_send(int dst, char *data, int len, int to_ms);
-int ecg_recieve(int src, char *data, int len, int to_ms);
+int ecg_send(int dst, char *packet, int len, int to_ms);
+int ecg_recieve(int src, char *packet, int len, int to_ms);
 
 #endif // ECGPROTOCOL_H

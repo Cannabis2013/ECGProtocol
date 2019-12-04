@@ -7,19 +7,21 @@
 #include <sys/time.h>
 #include <math.h>
 #include <stdlib.h>
+#include <time.h>
 
 
 
 typedef struct
 {
-    unsigned long long _timestamp_sec;
-    unsigned long long _timestamp_usec;
+    clock_t clocks;
 
 }TIMER_IN;
 
 void start_timer(TIMER_IN *t_in);
-unsigned long long time_elapsed(TIMER_IN *t_in);
+long time_elapsed(TIMER_IN *t_in);
 void stop_timer(void);
+
+long toMs(clock_t clocks);
 void block(int ms);
 
 #endif // CUSTOM_TIMER_H

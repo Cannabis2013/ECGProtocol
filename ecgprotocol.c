@@ -12,39 +12,36 @@
  *
  */
 
-int ecg_send(int dst, char *data, int len,int to_ms)
+int ecg_send(int dst, char *packet, int len,int to_ms)
 {
+    /*
+     * Statistics
+     *  - Session time should be identical to transmission time for the client
+     */
+    session_statistics.session_start_clock = clock();
+
     /*
      * INITIAL STATE
      *  - Establish connection and exchange information between sender and reciever (handshake)
      */
-    // Initialize packet with meta information
+
     Packet initial_packet;
     initial_packet.header.type.type = INIT;
-    initial_packet.header.src = (ushort) htobe16(LocalService.sin_port);
-    initial_packet.header.dst = (ushort) dst;
-    initial_packet.header.total_size = (uint) len;
-    initial_packet.header.protocol = IPPROTO_UDP;
 
-    int attempts = CONNECTION_INIT_ATTEMPT;
+    TRANSMIT_DETAILS t_details;
+    if(send_and_await_reply(&initial_packet,dst,CONNECTION_SEND_ATTEMPT,to_ms,AWAIT_TIMEOUT,&t_details) < 0)
+        return error.error_code;
 
-    // Establish handshake. Try this in 4 attempts
-    while(remote.channel_established == 0)
+    if(t_details.p_recv.header.type.type != ACK)
     {
-        if(attempts < 0)
-            return CONNECTION_ERROR;
-
-        TRANSMIT_DETAILS t_details;
-        if(send_and_await_reply(&initial_packet,dst,CONNECTION_SEND_ATTEMPT,to_ms,AWAIT_TIMEOUT,&t_details) < 0)
-            return error.error_code;
-
-        if(t_details.p_recv.header.type.type == ACK)
-        {
-            remote.peer_adrs = t_details.p_recv.header.src;
-            remote.channel_established = 1;
-        }
-        attempts--;
+        error.error_code = CONNECTION_HANDSHAKE_FAILED;
+        cp_data(error.error_description,
+                "Handshake failed. Failed to establish connection..",
+                sizeof ("Handshake failed. Failed to establish connection."));
+        return error.error_code;
     }
+
+    remote.connection_established = 1;
 
     /*
      * "SEND DATA" STATE
@@ -55,16 +52,16 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     int residual_data_len = len;
     while (residual_data_len > 0)
     {
-        Packet packet;
+        Packet chunk_packet;
 
-        packet.chunk.type.type = CHUNK;
+        chunk_packet.chunk.type.type = CHUNK;
         uint packet_len = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : (uint) residual_data_len;
-        cp_data(packet.chunk.data,data + str_index, packet_len);
-        packet.chunk.checksum = generateChecksum(packet.chunk.data,KEY1);
-        packet.chunk.chunk_size = packet_len;
+        cp_data(chunk_packet.chunk.data,packet + str_index, packet_len);
+        chunk_packet.chunk.checksum = generateChecksum(chunk_packet.chunk.data,KEY1);
+        chunk_packet.chunk.size = packet_len;
 
         TRANSMIT_DETAILS t_details;
-        if(send_and_await_reply(&packet,dst,CONNECTION_SEND_ATTEMPT,to_ms,AWAIT_TIMEOUT,&t_details) < 0)
+        if(send_and_await_reply(&chunk_packet,dst,CONNECTION_SEND_ATTEMPT,to_ms,AWAIT_TIMEOUT,&t_details) < 0)
             return error.error_code;
 
         if(t_details.p_recv.header.type.type == P_ACK)
@@ -74,13 +71,8 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         }
     }
 
-
     Packet packet_complete;
-    Header final_transmission_header;
-    final_transmission_header.src = (ushort) LOCALADRESS;
-    final_transmission_header.dst = remote.peer_adrs;
-    final_transmission_header.type.type = COMPLETE;
-    packet_complete.header = final_transmission_header;
+    packet_complete.header.type.type = COMPLETE;
 
     /*
      * To reduce the risks for a final transmission fail, we increases the number of connection attempts
@@ -90,15 +82,19 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     if(try_send(&packet_complete,dst,CONNECTION_FINAL_ATTEMP) < 0)
         return error.error_code;
 
-    remote.channel_established = 0;
+    remote.connection_established = 0;
     remote.peer_adrs = 0;
     remote.peer_id = 0;
 
     return len;
 }
 
-int ecg_recieve(int src, char *data,int len, int to_ms)
+int ecg_recieve(int src, char *packet,int len, int to_ms)
 {
+    // Statistics
+    session_statistics.session_start_clock = clock();
+
+    // Silence warnings
     VAR_UNUSED(len);
     VAR_UNUSED(src);
 
@@ -110,38 +106,33 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
     TIMER_IN time_in;
 
     // Initiate the loop
-    while (1) {
+    while (time_elapsed(&time_in) <= (long) to_ms ||
+           remote.connection_established == 0) {
 
-        if(time_elapsed(&time_in) > (unsigned long long) to_ms && remote.channel_established == 1)
-            return TIMEOUT;
-
-        Packet recieved_packet;
-        int bytes_recieved = await_reply(&recieved_packet,-1,AWAIT_CONTIGUOUS);
+        Packet recv_packet;
+        int bytes_recieved = await_reply(&recv_packet,-1,AWAIT_CONTIGUOUS);
         if(bytes_recieved < 0)
             return error.error_code;
 
 
-        if(recieved_packet.header.type.type == INIT)
+        if(recv_packet.header.type.type == INIT)
         {
-            // Saving
-            remote.peer_adrs = recieved_packet.header.src;
-            remote.channel_established = 1;
+            // Statistics
+            session_statistics.transmission_start_clock= clock();
 
-            uint total_pending_size = recieved_packet.header.total_size;
+            remote.connection_established = 1;
 
-            Packet p_ack;
-            p_ack.header.type.type = ACK;
-            p_ack.header.src = (ushort) htobe16(LocalService.sin_port);
-            p_ack.header.dst = remote.peer_adrs;
+            Packet p_acknowledge;
+            p_acknowledge.header.type.type = ACK;
 
-            if(try_send(&p_ack,remote.peer_adrs,CONNECTION_INIT_ATTEMPT) < 0)
+            if(try_send(&p_acknowledge,remote.peer_adrs,CONNECTION_INIT_ATTEMPT) < 0)
                 return error.error_code;
 
             start_timer(&time_in);
         }
-        else if(recieved_packet.chunk.type.type == CHUNK)
+        else if(recv_packet.chunk.type.type == CHUNK)
         {
-            if(recieved_packet.chunk.checksum != generateChecksum(recieved_packet.chunk.data,KEY1))
+            if(recv_packet.chunk.checksum != generateChecksum(recv_packet.chunk.data,KEY1))
             {
                 Packet p_fail_packet;
                 p_fail_packet.header.type.type = P_CHECKSUM_FAIL;
@@ -150,9 +141,9 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
             }
             else
             {
-                uint chunk_size = recieved_packet.chunk.chunk_size;
-                cp_data(data + total_chunk_recieved,recieved_packet.chunk.data,chunk_size);
-                total_chunk_recieved += recieved_packet.chunk.chunk_size;
+                uint chunk_size = recv_packet.chunk.size;
+                cp_data(packet + total_chunk_recieved,recv_packet.chunk.data,chunk_size);
+                total_chunk_recieved += recv_packet.chunk.size;
 
                 Packet p_ack_packet;
                 p_ack_packet.header.type.type = P_ACK;
@@ -161,20 +152,23 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
                     return error.error_code;
             }
         }
-        else if (recieved_packet.header.type.type == COMPLETE) {
-            remote.channel_established = 0;
+        else if (recv_packet.header.type.type == COMPLETE) {
+            session_statistics.peer_adrs = remote.peer_adrs;
+
+            remote.connection_established = 0;
             remote.peer_id = 0;
             remote.peer_adrs = 0;
-            break;
+            session_statistics.transmission_end_clock = clock();
+
+            return (int) total_chunk_recieved;
         }
     }
-
-    return 0;
+    return TIMEOUT;
 }
 
 int ecg_init(int addr)
 {
-    remote.channel_established = 0;
+    remote.connection_established = 0;
     remote.peer_id = 0;
     remote.peer_adrs = 0;
 
@@ -209,9 +203,9 @@ int await_reply(Packet *buffer,int timeout, int mode)
 
             return TIMEOUT;
         }
-        else if(status == INBOUND_REQUEST_IGNORED)
+        else if(status == CONNECTION_REQUEST_IGNORED)
         {
-            error.error_code = INBOUND_REQUEST_IGNORED;
+            error.error_code = CONNECTION_REQUEST_IGNORED;
             return error.error_code;
         }
     }

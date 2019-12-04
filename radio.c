@@ -6,7 +6,7 @@ int radio_init(int addr)
 
     unique_adress = permuteQPR((permuteQPR(1) + SEED)^0x5bf03635);
 
-    remote.channel_established = 0;
+    remote.connection_established = 0;
 
     if(inet_aton(LOCALHOST,&LocalService.sin_addr) == 0 || addr < 1024 || addr > 65336)
     {
@@ -55,7 +55,7 @@ int radio_send(int dst, char *data, int len)
     // Initialize the frame
     Frame_PTU ptu;
 
-    ptu.frame.header.src = htole16(LocalService.sin_port);
+    ptu.frame.header.src = htobe16(LocalService.sin_port);
     ptu.frame.header.dst = (ushort) dst;
     ptu.frame.header.lenght = FRAME_PAYLOAD_SIZE; // Size of raw data
     ptu.frame.unique_adress = unique_adress;
@@ -98,8 +98,9 @@ int radio_send(int dst, char *data, int len)
 
 int radio_recv(int *src, char *data, int to_ms)
 {
+    VAR_UNUSED(src);
 
-    // Ensuring init() has been called before this function call
+    // Ensuring init() has been called before this function is called
     if(mySocket < 0)
     {
         uint size_of_msg = sizeof ("Socket not initialized. Please call radio_init() before calling radio_send().");
@@ -118,9 +119,9 @@ int radio_recv(int *src, char *data, int to_ms)
 
         if(bytes_recieved > 0)
         {
-            if(remote.channel_established == 1 && remote.peer_id != magic_key)
-                return INBOUND_REQUEST_IGNORED;
-            *src = htobe16(recieved_frame.frame.header.src);
+            if(remote.connection_established == 1 && remote.peer_id != magic_key)
+                return CONNECTION_REQUEST_IGNORED;
+            remote.peer_adrs = recieved_frame.frame.header.src;
             remote.peer_id = magic_key;
             block(1000);
             cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
@@ -138,10 +139,11 @@ int radio_recv(int *src, char *data, int to_ms)
 
         if(bytes_recieved > 0)
         {
-            if(remote.channel_established == 1 && remote.peer_id != magic_key)
-                return INBOUND_REQUEST_IGNORED;
+            if(remote.connection_established == 1 && remote.peer_id != magic_key)
+                return CONNECTION_REQUEST_IGNORED;
+
             remote.peer_id = magic_key;
-            *src = htobe16(recieved_frame.frame.header.src);
+            remote.peer_adrs = recieved_frame.frame.header.src;
             cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
             block(1000);
             return (int) bytes_recieved;

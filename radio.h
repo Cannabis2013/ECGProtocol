@@ -58,14 +58,15 @@ struct sockaddr_in LocalService;
 #define CONNECTION_ERROR -2
 #define SOCKET_ERROR -3
 #define INVALID_ADRESS -4
-#define INBOUND_REQUEST_IGNORED -5
+#define CONNECTION_REQUEST_IGNORED -5
+#define CONNECTION_HANDSHAKE_FAILED -6
 
 // Used for ensuring one peer-to-peer relation at a time
 typedef struct
 {
     uint peer_id;
     ushort peer_adrs;
-    int channel_established;
+    int connection_established;
 }REMOTE_META;
 
 REMOTE_META remote;

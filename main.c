@@ -83,18 +83,27 @@ int main(int argc, char *argv[])
         char inbound_data[4096];
         printf("\n\nNow listens on port: %d\n",src_port);
         int bytes_recieved = ecg_recieve(0,inbound_data,0,timeout);
-        if(bytes_recieved < 0)
-            printf("Something went wrong");
 
-        unsigned long long t_elapsed = time_elapsed(&time_str);
-        printf("%s\n",inbound_data);
-        printf("Latency: %lld ms\n",t_elapsed);
+        session_statistics.session_end_clock = clock();
 
+        printf("\nStatistics\n");
+        printf("##########\n");
+        printf("Source port: %d\n",session_statistics.peer_adrs);
+        printf("Bytes recieved: %d b\n",bytes_recieved);
+        printf("Message: %s\n",inbound_data);
+        printf("Session duration: %ld ms\n",toMs(session_statistics.session_end_clock - session_statistics.session_start_clock));
+        printf("Latency: %ld ms\n",toMs(session_statistics.transmission_end_clock - session_statistics.transmission_start_clock));
         return 0;
     }
 
-    ecg_send(dst_port,outbound_data,msg_size,timeout);
-    unsigned long long t_elapsed = time_elapsed(&time_str);
-    printf("Latency: %lld ms\n",t_elapsed);
+    int bytes_sent = ecg_send(dst_port,outbound_data,msg_size,timeout);
+
+    session_statistics.session_end_clock = clock();
+
+    printf("\nStatistics\n");
+    printf("##########\n");
+    printf("Bytes sent: %d b \n",bytes_sent);
+    printf("Session duration: %ld ms\n",toMs(session_statistics.session_end_clock - session_statistics.session_start_clock));
+
     return 0;
 }
