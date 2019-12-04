@@ -78,7 +78,7 @@ int radio_send(int dst, char *data, int len)
     if(connection < 0)
         return CONNECTION_ERROR;
 
-    block(950); // Assuming the above operations took about 50ms
+    block(1000); // Assuming the above operations took about 50ms
     int bytes_send = (int) send(mySocket,ptu.raw,(uint) FRAME_SIZE,0);
 
     return bytes_send;
@@ -101,8 +101,7 @@ int radio_recv(int *src, char *data, int to_ms)
             *src = htobe16(recieved_frame.frame.header.src);
             remote.peer_id = magic_key;
             block(1000);
-            strcpy(data,recieved_frame.frame.payload);
-            //cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
+            cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
         }
         return (int) bytes_recieved;
     }
@@ -122,7 +121,7 @@ int radio_recv(int *src, char *data, int to_ms)
             remote.peer_id = magic_key;
             *src = htobe16(recieved_frame.frame.header.src);
             cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
-            block(950);
+            block(1000);
             return (int) bytes_recieved;
         }
     }

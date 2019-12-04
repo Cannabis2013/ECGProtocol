@@ -19,9 +19,6 @@
 #define KEY1 0x9A
 #define KEY2 0xB8
 
-
-static int channel_established = 0;
-
 /*
  * Error handling:
  *  - Error structure containing error code and description
@@ -30,23 +27,23 @@ static int channel_established = 0;
 typedef struct
 {
     int error_code;
-    char error_description[0];
+    char error_description[128];
 }Error;
 
 static Error error;
 
 // Remote meta information structure
 
-#define CONNECTION_INIT_ATTEMPT 4
-#define CONNECTION_SEND_ATTEMPT 3
-#define CONNECTION_AWAIT_ATTEMPT 3
+#define CONNECTION_INIT_ATTEMPT 2
+#define CONNECTION_SEND_ATTEMPT 2
+#define CONNECTION_AWAIT_ATTEMPT 2
 #define CONNECTION_FINAL_ATTEMP 8
 #define CONNECTION_LISTEN_ATTEMPT 1
 
 #define type_t char
 
 /*
- * PTU types
+ * PDU types
  */
 
 #define CHUNK '0'
@@ -89,8 +86,17 @@ typedef union
     Chunk   chunk;
 }Packet;
 
+typedef struct
+{
+    uint bytes_sent;
+    uint bytes_recv;
+
+    Packet p_recv;
+}TRANSMIT_DETAILS;
+
 ushort generateChecksum(char *msg, ushort key);
 
+int send_and_await_reply(Packet*packet, int adrs_reciever, int connection_attempts, int timeout, int mode, TRANSMIT_DETAILS *t);
 int try_send(Packet *packet, int adrs_reciever, int connection_attempts);
 int await_reply(Packet *buffer, int timeout, int connection_attempts, int mode);
 

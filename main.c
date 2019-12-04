@@ -14,11 +14,19 @@
 #define SERVER_ROLE 0
 #define CLIENT_ROLE 1
 
+void print_array(char *arr,int len)
+{
+    for (int i = 0; i < len; ++i) {
+        char c = *(arr + i);
+        printf("%c",c);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     char msg[4096];
 
-    ulong msg_size = 0;
+    int msg_size = 0;
 
     ushort src_port = 35000;
     ushort dst_port = 22500;
@@ -57,21 +65,23 @@ int main(int argc, char *argv[])
     printf("\tSource port: %d\n",src_port);
     printf("\tDestination port: %d\n",dst_port);
     printf("\tData out: %s\n",msg);
-    printf("\tTransmission size: %lld\n",msg_size);
+    printf("\tTimeout: %d\n",timeout);
+    printf("\tTransmission size: %d\n",msg_size);
 
     char outbound_data[msg_size];
-    char inbound_data[4096];
 
-    cp_data(outbound_data,msg,msg_size);
+    cp_data(outbound_data,msg,(uint) msg_size);
 
     // Initialize the radio chip
     ecg_init((int) src_port);
 
     if(role == SERVER_ROLE)
     {
-        printf("Listening session initated. Now listens on port: %d\n",src_port);
+        char inbound_data[4096];
+        printf("\n\nNow listens on port: %d\n",src_port);
         ecg_recieve(0,inbound_data,0,timeout);
-        printf("Recieved data: %s\n",inbound_data);
+        printf("%s\n",inbound_data);
+
         return 0;
     }
 

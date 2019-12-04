@@ -21,8 +21,7 @@ unsigned long long  time_elapsed(TIMER_IN *t_in)
     _current_time_sec = _tVal.tv_sec;
     _current_time_usec = _tVal.tv_usec;
 
-    _elapsed = 1000*(_current_time_sec - t_in->_timestamp_sec) + (long long) round((_current_time_usec - t_in->_timestamp_usec)/1000);
-    return _elapsed;
+    return  1000*(_current_time_sec - t_in->_timestamp_sec) + (long long) round((_current_time_usec - t_in->_timestamp_usec)/1000);
 }
 
 void block(int ms)
