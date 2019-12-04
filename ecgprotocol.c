@@ -102,29 +102,26 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
     VAR_UNUSED(len);
     VAR_UNUSED(src);
 
+    if(mySocket < 0)
+        return SOCKET_ERROR;
+
     uint total_chunk_recieved = 0;
 
     TIMER_IN time_in;
 
     // Initiate the loop
     while (1) {
-        int t_elapsed = time_elapsed(&time_in);
-        if( t_elapsed > (unsigned long long) to_ms && remote.channel_established == 1)
+
+        if(time_elapsed(&time_in) > (unsigned long long) to_ms && remote.channel_established == 1)
             return TIMEOUT;
 
         Packet recieved_packet;
-        int bytes_recieved = await_reply(&recieved_packet,to_ms,CONNECTION_LISTEN_ATTEMPT,AWAIT_CONTIGUOUS);
+        int bytes_recieved = await_reply(&recieved_packet,-1,AWAIT_CONTIGUOUS);
         if(bytes_recieved < 0)
             return error.error_code;
 
-        if(recieved_packet.header.type.type == ABORT)
-        {
-            remote.channel_established = 0;
-            remote.peer_id = 0;
-            remote.peer_adrs = 0;
-        }
 
-        else if(recieved_packet.header.type.type == INIT)
+        if(recieved_packet.header.type.type == INIT)
         {
             // Saving
             remote.peer_adrs = recieved_packet.header.src;
@@ -194,7 +191,7 @@ int ecg_init(int addr)
     return status;
 }
 
-int await_reply(Packet *buffer,int timeout,int connection_attempts, int mode)
+int await_reply(Packet *buffer,int timeout, int mode)
 {
     int status = 0, adrs_from;
     while((status = radio_recv(&adrs_from,buffer->raw,timeout)) < 0)
@@ -205,7 +202,7 @@ int await_reply(Packet *buffer,int timeout,int connection_attempts, int mode)
             strcpy(error.error_description,"Invalid adress provided.");
             return INVALID_ADRESS;
         }
-        else if(status == TIMEOUT && mode  == AWAIT_TIMEOUT && connection_attempts == 0)
+        else if(status == TIMEOUT && mode  == AWAIT_TIMEOUT)
         {
             error.error_code = TIMEOUT;
             strcpy(error.error_description,"Connection timed out. Remote is probably offline.");
@@ -215,10 +212,8 @@ int await_reply(Packet *buffer,int timeout,int connection_attempts, int mode)
         else if(status == INBOUND_REQUEST_IGNORED)
         {
             error.error_code = INBOUND_REQUEST_IGNORED;
-
-            return INBOUND_REQUEST_IGNORED;
+            return error.error_code;
         }
-        connection_attempts--;
     }
 
     return status;
@@ -260,20 +255,26 @@ ushort generateChecksum(char *msg, ushort key)
 
 int send_and_await_reply(Packet *packet, int adrs_reciever, int connection_attempts, int timeout, int mode, TRANSMIT_DETAILS *t)
 {
-    int bytes_sent = try_send(packet,adrs_reciever,connection_attempts);
-    if(bytes_sent < 0)
-        return error.error_code;
+    int attempt = connection_attempts;
+    while(attempt > 0)
+    {
+        if((t->bytes_sent= try_send(packet,adrs_reciever,connection_attempts)) < 0)
+            return error.error_code;
 
-    t->bytes_sent = (uint) bytes_sent;
+        Packet p_recv;
+        if((t->bytes_recv = await_reply(&p_recv,timeout,mode)) >= 0)
+        {
+            t->p_recv = p_recv;
+            return 0;
+        }
+        else if(t->bytes_recv == TIMEOUT)
+        {
+            error.error_code = t->bytes_recv;
+            attempt--;
+        }
+        else
+            return error.error_code;
+    }
 
-    Packet p_recv;
-
-    int bytes_recv = await_reply(&p_recv,timeout,connection_attempts,mode);
-    if(bytes_recv < 0)
-        return error.error_code;
-
-    t->p_recv = p_recv;
-    t->bytes_recv = (uint) bytes_recv;
-
-    return 0;
+    return error.error_code;
 }

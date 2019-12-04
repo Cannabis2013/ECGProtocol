@@ -88,8 +88,8 @@ typedef union
 
 typedef struct
 {
-    uint bytes_sent;
-    uint bytes_recv;
+    int bytes_sent;
+    int bytes_recv;
 
     Packet p_recv;
 }TRANSMIT_DETAILS;
@@ -98,7 +98,7 @@ ushort generateChecksum(char *msg, ushort key);
 
 int send_and_await_reply(Packet*packet, int adrs_reciever, int connection_attempts, int timeout, int mode, TRANSMIT_DETAILS *t);
 int try_send(Packet *packet, int adrs_reciever, int connection_attempts);
-int await_reply(Packet *buffer, int timeout, int connection_attempts, int mode);
+int await_reply(Packet *buffer, int timeout, int mode);
 
 int ecg_init ( int addr );
 int ecg_send(int dst, char *data, int len, int to_ms);

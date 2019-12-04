@@ -12,8 +12,8 @@
 
 typedef struct
 {
-    long long _timestamp_sec;
-    long long _timestamp_usec;
+    unsigned long long _timestamp_sec;
+    unsigned long long _timestamp_usec;
 
 }TIMER_IN;
 

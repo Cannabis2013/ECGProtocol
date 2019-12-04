@@ -75,17 +75,26 @@ int main(int argc, char *argv[])
     // Initialize the radio chip
     ecg_init((int) src_port);
 
+    TIMER_IN time_str;
+    start_timer(&time_str);
+
     if(role == SERVER_ROLE)
     {
         char inbound_data[4096];
         printf("\n\nNow listens on port: %d\n",src_port);
-        ecg_recieve(0,inbound_data,0,timeout);
+        int bytes_recieved = ecg_recieve(0,inbound_data,0,timeout);
+        if(bytes_recieved < 0)
+            printf("Something went wrong");
+
+        unsigned long long t_elapsed = time_elapsed(&time_str);
         printf("%s\n",inbound_data);
+        printf("Latency: %lld ms\n",t_elapsed);
 
         return 0;
     }
 
     ecg_send(dst_port,outbound_data,msg_size,timeout);
-
+    unsigned long long t_elapsed = time_elapsed(&time_str);
+    printf("Latency: %lld ms\n",t_elapsed);
     return 0;
 }

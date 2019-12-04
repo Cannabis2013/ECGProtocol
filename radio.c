@@ -3,7 +3,8 @@
 int radio_init(int addr)
 {
     // NOTE: Has to find an alternative solution
-    unique_adress = permuteQPR((permuteQPR(1) + SEED) ^ 0x5bf03635);
+
+    unique_adress = permuteQPR((permuteQPR(1) + SEED)^0x5bf03635);
 
     remote.channel_established = 0;
 
@@ -14,6 +15,7 @@ int radio_init(int addr)
     }
     LocalService.sin_family = AF_INET;
     LocalService.sin_port = htons((uint16_t)addr);
+
     mySocket = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
     if(mySocket < 0)
     {
@@ -21,6 +23,9 @@ int radio_init(int addr)
         return SOCKET_ERROR;
     }
 
+    /*
+     * Sets the socket in listening state
+     */
 
     if(bind(mySocket,(struct sockaddr *)&LocalService,sizeof (LocalService)) == -1)
     {
@@ -29,12 +34,24 @@ int radio_init(int addr)
         exit(-1);
     }
 
-    //fcntl(mySocket,F_SETFL,O_NONBLOCK);
     return 0;
 }
 
 int radio_send(int dst, char *data, int len)
 {
+    /*
+     * Ensuring init() has been called before this function call
+     * Returns appropriate error code if necessary
+     */
+
+    if(mySocket < 0)
+    {
+        uint size_of_msg = sizeof ("Socket not initialized. Please call radio_init() before calling radio_send().");
+        cp_data(radio_error.err_msg,"Socket not initialized. Please call radio_init() before calling radio_send().",size_of_msg);
+        radio_error.code = SOCKET_ERROR;
+        return radio_error.code;
+    }
+
     // Initialize the frame
     Frame_PTU ptu;
 
@@ -44,14 +61,6 @@ int radio_send(int dst, char *data, int len)
     ptu.frame.unique_adress = unique_adress;
 
     cp_data(ptu.frame.payload,data,(uint) len);
-
-    if(mySocket < 0)
-    {
-        uint size_of_msg = sizeof ("Socket not initialized. Please call radio_init() before calling radio_send().");
-        cp_data(radio_error.err_msg,"Socket not initialized. Please call radio_init() before calling radio_send().",size_of_msg);
-        radio_error.code = SOCKET_ERROR;
-        return radio_error.code;
-    }
 
     // Check if adress is valid and initialize struct for later use
     struct sockaddr_in remoteService;
@@ -72,8 +81,11 @@ int radio_send(int dst, char *data, int len)
     remoteService.sin_family = AF_INET;
     remoteService.sin_port = htons((uint16_t)dst);
 
-    // Establish connection
-    // NOTE: This is not the common UDP way of transmitting data; but it provides us with the opportunity to check whether the connection can be done.
+    /* Establish connection
+     * NOTE: This is not the common UDP way of transmitting data;
+     * but it provides us with a quick opportunity to check whether the connection can be done.
+     */
+
     int connection = connect(mySocket,(struct sockaddr *)&remoteService,sizeof (remoteService));
     if(connection < 0)
         return CONNECTION_ERROR;
@@ -86,6 +98,16 @@ int radio_send(int dst, char *data, int len)
 
 int radio_recv(int *src, char *data, int to_ms)
 {
+
+    // Ensuring init() has been called before this function call
+    if(mySocket < 0)
+    {
+        uint size_of_msg = sizeof ("Socket not initialized. Please call radio_init() before calling radio_send().");
+        cp_data(radio_error.err_msg,"Socket not initialized. Please call radio_init() before calling radio_send().",size_of_msg);
+        radio_error.code = SOCKET_ERROR;
+        return radio_error.code;
+    }
+
     Frame_PTU recieved_frame;
 
     if(to_ms == 0)
@@ -130,7 +152,7 @@ int radio_recv(int *src, char *data, int to_ms)
 }
 
 /* This algorithm is found on the internet.
- * Credit goes solely to the author Jeff Preshing who presented this algorithm on his website Preshing.com with the full url given below:
+ * Credit goes solely to the author Jeff Preshing who presented this algorithm on his website Preshing.com.
  * Url: https://preshing.com/20121224/how-to-generate-a-sequence-of-unique-random-integers/
  */
 
@@ -151,7 +173,7 @@ void cp_data(char*dst, char*src, uint src_len)
 
 char* integertoc(uint number)
 {
-    int n = number == 0 ? 0 : log10(number);
+    int n = (number == 0) ? 0 : log10(number);
 
     char *result = malloc(sizeof (char*));
 
