@@ -1,15 +1,15 @@
 #include "custom_timer.h"
 
-void start_timer()
+void start_timer(TIMER_IN *t_in)
 {
     struct timeval _tVal;
     gettimeofday(&_tVal,0);
 
-    _timestamp_sec = _tVal.tv_sec;
-    _timestamp_usec = _tVal.tv_usec;
+    t_in->_timestamp_sec = _tVal.tv_sec;
+    t_in->_timestamp_usec = _tVal.tv_usec;
 }
 
-long long time_elapsed()
+unsigned long long  time_elapsed(TIMER_IN *t_in)
 {
     long long _elapsed;
     long long _current_time_sec,
@@ -21,7 +21,7 @@ long long time_elapsed()
     _current_time_sec = _tVal.tv_sec;
     _current_time_usec = _tVal.tv_usec;
 
-    _elapsed = 1000*(_current_time_sec - _timestamp_sec) + (long long) round((_current_time_usec - _timestamp_usec)/1000);
+    _elapsed = 1000*(_current_time_sec - t_in->_timestamp_sec) + (long long) round((_current_time_usec - t_in->_timestamp_usec)/1000);
     return _elapsed;
 }
 
@@ -41,3 +41,4 @@ void block(int ms)
         times_up = elapsed > ms ? 1 : 0;
     }
 }
+

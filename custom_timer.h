@@ -8,11 +8,17 @@
 #include <math.h>
 #include <stdlib.h>
 
-static long long _timestamp_sec;
-static long long _timestamp_usec;
 
-void start_timer(void);
-long long time_elapsed(void);
+
+typedef struct
+{
+    long long _timestamp_sec;
+    long long _timestamp_usec;
+
+}TIMER_IN;
+
+void start_timer(TIMER_IN *t_in);
+unsigned long long time_elapsed(TIMER_IN *t_in);
 void stop_timer(void);
 void block(int ms);
 

@@ -39,7 +39,7 @@
 #define AWAIT_CONTIGUOUS 0
 #define AWAIT_TIMEOUT 1
 
-#define SEED 0
+#define SEED 5
 uint unique_adress;
 
 typedef struct
@@ -58,7 +58,6 @@ struct sockaddr_in LocalService;
 #define SOCKET_ERROR -3
 #define INVALID_ADRESS -4
 #define INBOUND_REQUEST_IGNORED -5
-
 
 // Used for ensuring one peer-to-peer relation at a time
 typedef struct
@@ -87,7 +86,7 @@ typedef struct
     char            payload[CHUNK_SIZE]; // 135 bytes allocated
     ushort          checksum; // 2 bytes allocated
 
-}Frame; // 10 + 4 + 6 + 135 + 2 = 157 bytes total allocated for this structure
+}Frame; // 10 + 4 + 6 + 135  = 22 + 135= 157 bytes total allocated for this structure
 
 typedef union
 {

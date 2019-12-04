@@ -78,8 +78,8 @@ int radio_send(int dst, char *data, int len)
     if(connection < 0)
         return CONNECTION_ERROR;
 
-    int bytes_send = (int) send(mySocket,ptu.raw,(uint) FRAME_SIZE,0);
     block(950); // Assuming the above operations took about 50ms
+    int bytes_send = (int) send(mySocket,ptu.raw,(uint) FRAME_SIZE,0);
 
     return bytes_send;
 }
@@ -93,31 +93,32 @@ int radio_recv(int *src, char *data, int to_ms)
         ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_SIZE,MSG_DONTWAIT);
 
         uint magic_key = recieved_frame.frame.unique_adress;
-        if(remote.channel_established == 1 && remote.peer_id != magic_key)
-            return INBOUND_REQUEST_IGNORED;
 
         if(bytes_recieved > 0)
         {
+            if(remote.channel_established == 1 && remote.peer_id != magic_key)
+                return INBOUND_REQUEST_IGNORED;
             *src = htobe16(recieved_frame.frame.header.src);
-            remote.peer_id = recieved_frame.frame.unique_adress;
-            cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
+            remote.peer_id = magic_key;
             block(1000);
+            cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
         }
         return (int) bytes_recieved;
     }
 
-
-    start_timer();
-    while (time_elapsed() <= to_ms || to_ms < 0) {
+    TIMER_IN t_in;
+    start_timer(&t_in);
+    unsigned long long t_sec =  0;
+    while ((t_sec = time_elapsed(&t_in)) <= (unsigned long long) to_ms || to_ms < 0) {
         ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_SIZE,MSG_DONTWAIT);
 
         uint magic_key = recieved_frame.frame.unique_adress;
 
-        if(remote.channel_established == 1 && remote.peer_id != magic_key)
-            return INBOUND_REQUEST_IGNORED;
-
         if(bytes_recieved > 0)
         {
+            if(remote.channel_established == 1 && remote.peer_id != magic_key)
+                return INBOUND_REQUEST_IGNORED;
+            remote.peer_id = magic_key;
             *src = htobe16(recieved_frame.frame.header.src);
             cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
             block(950);
@@ -144,7 +145,7 @@ unsigned int permuteQPR(unsigned int x)
 
 void cp_data(char*dst, char*src, uint src_len)
 {
-    for (int i = 0; i < src_len; ++i)
+    for (uint i = 0; i < src_len; ++i)
         *(dst + i) = *(src + i);
 }
 

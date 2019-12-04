@@ -56,6 +56,7 @@ static Error error;
 #define P_ACK '3'
 #define COMPLETE '4'
 #define P_CHECKSUM_FAIL '5'
+#define ABORT '6'
 
 typedef struct
 {
@@ -70,7 +71,7 @@ typedef struct
     uint    total_size; // Allocates 4 bytes for total chunk size
     char    protocol; // Allocates 1 byte for protocol identification
 
-}Header;
+}Header; // Allocates 10 bytes
 
 typedef struct
 {
@@ -86,7 +87,7 @@ typedef union
     char    raw[CHUNK_SIZE];
 
     Header  header;
-    Chunk    chunk;
+    Chunk   chunk;
 }Packet;
 
 ushort generateChecksum(char *msg, ushort key);

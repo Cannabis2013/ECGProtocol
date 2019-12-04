@@ -70,8 +70,9 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         uint packet_len = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : (uint) residual_data_len;
         cp_data(d.data,data + str_index, packet_len);
         d.checksum = generateChecksum(d.data,KEY1);
+        d.chunk_size = packet_len;
         packet.chunk = d;
-        packet.chunk.chunk_size = packet_len;
+        printf("Checksum: %d\n",packet.chunk.checksum);
 
         if(try_send(&packet,remote.peer_adrs,CONNECTION_SEND_ATTEMPT) <0)
             return error.error_code;
@@ -86,6 +87,12 @@ int ecg_send(int dst, char *data, int len,int to_ms)
             residual_data_len -= FRAME_PAYLOAD_SIZE;
             str_index += residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
         }
+        else if(reply.header.type.type == P_CHECKSUM_FAIL)
+        {
+            Packet p_abort;
+
+            printf("Checksum failed\n");
+        }
     }
     Packet packet_complete;
     Header final_transmission_header;
@@ -94,17 +101,13 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     final_transmission_header.type.type = COMPLETE;
     packet_complete.header = final_transmission_header;
 
-    /* Reaching this state we have to assume the whole pack has succesfully been transmitted.
+    /*
      * To reduce the risks for a final transmission fail, we increases the number of connection attempts
      * to 8.
      */
 
     AGAIN :
     if(try_send(&packet_complete,remote.peer_adrs,CONNECTION_FINAL_ATTEMP) <0)
-        return error.error_code;
-
-    Packet recieved_packet;
-    if(await_reply(&recieved_packet,to_ms,CONNECTION_FINAL_ATTEMP,AWAIT_TIMEOUT) < 0)
         return error.error_code;
 
     Packet final_reply;
@@ -126,17 +129,26 @@ int ecg_send(int dst, char *data, int len,int to_ms)
 int ecg_recieve(int src, char *data,int len, int to_ms)
 {
     VAR_UNUSED(len);
+    VAR_UNUSED(src);
 
     char* accumulated_data = NULL;
     uint total_chunk_recieved = 0;
 
+    // Initiate the loop
     while (1) {
         Packet recieved_packet;
-        int bytes_recieved = 0;
-        if((bytes_recieved = await_reply(&recieved_packet,to_ms,CONNECTION_LISTEN_ATTEMPT,AWAIT_CONTIGUOUS)) < 0)
+        int bytes_recieved = await_reply(&recieved_packet,to_ms,CONNECTION_LISTEN_ATTEMPT,AWAIT_CONTIGUOUS);
+        if(bytes_recieved < 0)
             return error.error_code;
 
-        if(recieved_packet.header.type.type == INIT)
+        if(recieved_packet.header.type.type == ABORT)
+        {
+            remote.channel_established = 0;
+            remote.peer_id = 0;
+            remote.peer_adrs = 0;
+        }
+
+        else if(recieved_packet.header.type.type == INIT)
         {
             // Saving
             remote.peer_adrs = recieved_packet.header.src;
@@ -145,10 +157,12 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
             uint total_pending_size = recieved_packet.header.total_size;
             accumulated_data = malloc(total_pending_size);
 
+            data = malloc(total_pending_size);
+
             Packet p_ack;
             p_ack.header.type.type = ACK;
             p_ack.header.src = (ushort) htobe16(LocalService.sin_port);
-            p_ack.header.dst = (ushort) src;
+            p_ack.header.dst = remote.peer_adrs;
 
             if(!try_send(&p_ack,remote.peer_adrs,CONNECTION_INIT_ATTEMPT))
                 return error.error_code;
@@ -156,10 +170,9 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
         }
         else if(recieved_packet.chunk.type.type == CHUNK)
         {
-            // TODO: Again, we have to implement some kind of integrety verification.
-
-            if(recieved_packet.chunk.checksum != generateChecksum(recieved_packet.chunk.data,KEY2))
+            if(recieved_packet.chunk.checksum != generateChecksum(recieved_packet.chunk.data,KEY1))
             {
+                printf("Checksum: %d\n",generateChecksum(recieved_packet.chunk.data,KEY2));
                 Packet p_fail_packet;
                 p_fail_packet.header.type.type = P_CHECKSUM_FAIL;
                 if(!try_send(&p_fail_packet,remote.peer_adrs,CONNECTION_INIT_ATTEMPT))
@@ -187,8 +200,8 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
                 return error.error_code;
 
             remote.channel_established = 0;
-            remote.peer_id = -1;
-            remote.peer_adrs = -1;
+            remote.peer_id = 0;
+            remote.peer_adrs = 0;
             break;
         }
     }
@@ -232,6 +245,12 @@ int await_reply(Packet *buffer,int timeout,int connection_attempts, int mode)
             strcpy(error.error_description,"Connection timed out. Remote is probably offline.");
 
             return TIMEOUT;
+        }
+        else if(status == INBOUND_REQUEST_IGNORED)
+        {
+            error.error_code = INBOUND_REQUEST_IGNORED;
+
+            return INBOUND_REQUEST_IGNORED;
         }
         connection_attempts--;
     }
