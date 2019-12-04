@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <math.h>
+#include <string.h>
 
 #include "custom_timer.h"
 
@@ -83,8 +84,8 @@ typedef struct
     char            preAmble[10]; // 10 bytes allocated
     uint            unique_adress; // 4 bytes allocated
     Frame_Header    header; // 6 bytes allocated
-    char            payload[CHUNK_SIZE]; // 135 bytes allocated
     ushort          checksum; // 2 bytes allocated
+    char            payload[CHUNK_SIZE]; // 135 bytes allocated
 
 }Frame; // 10 + 4 + 6 + 135  = 22 + 135= 157 bytes total allocated for this structure
 

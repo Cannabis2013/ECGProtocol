@@ -101,7 +101,8 @@ int radio_recv(int *src, char *data, int to_ms)
             *src = htobe16(recieved_frame.frame.header.src);
             remote.peer_id = magic_key;
             block(1000);
-            cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
+            strcpy(data,recieved_frame.frame.payload);
+            //cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
         }
         return (int) bytes_recieved;
     }

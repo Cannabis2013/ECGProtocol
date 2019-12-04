@@ -65,15 +65,15 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     while (residual_data_len > 0)
     {
         Packet packet;
-        Chunk d;
-        d.type.type = CHUNK;
-        uint packet_len = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : (uint) residual_data_len;
-        cp_data(d.data,data + str_index, packet_len);
-        d.checksum = generateChecksum(d.data,KEY1);
-        d.chunk_size = packet_len;
-        packet.chunk = d;
-        printf("Checksum: %d\n",packet.chunk.checksum);
 
+        packet.chunk.type.type = CHUNK;
+        uint packet_len = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : (uint) residual_data_len;
+        cp_data(packet.chunk.data,data + str_index, packet_len);
+        packet.chunk.checksum = generateChecksum(packet.chunk.data,KEY1);
+        packet.chunk.chunk_size = packet_len;
+
+        Packet copy;
+        cp_data(copy.raw,packet.raw,CHUNK_SIZE);
         if(try_send(&packet,remote.peer_adrs,CONNECTION_SEND_ATTEMPT) <0)
             return error.error_code;
 
@@ -86,12 +86,6 @@ int ecg_send(int dst, char *data, int len,int to_ms)
         {
             residual_data_len -= FRAME_PAYLOAD_SIZE;
             str_index += residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
-        }
-        else if(reply.header.type.type == P_CHECKSUM_FAIL)
-        {
-            Packet p_abort;
-
-            printf("Checksum failed\n");
         }
     }
     Packet packet_complete;
@@ -106,7 +100,6 @@ int ecg_send(int dst, char *data, int len,int to_ms)
      * to 8.
      */
 
-    AGAIN :
     if(try_send(&packet_complete,remote.peer_adrs,CONNECTION_FINAL_ATTEMP) <0)
         return error.error_code;
 
@@ -114,14 +107,9 @@ int ecg_send(int dst, char *data, int len,int to_ms)
     if(await_reply(&final_reply,to_ms,CONNECTION_AWAIT_ATTEMPT,AWAIT_TIMEOUT) < 0)
         return error.error_code;
 
-    if(final_reply.header.type.type == ACK)
-    {
-        remote.channel_established = 0;
-        remote.peer_adrs = 0;
-        remote.peer_id = 0;
-    }
-    else
-        goto AGAIN;
+    remote.channel_established = 0;
+    remote.peer_adrs = 0;
+    remote.peer_id = 0;
 
     return len;
 }
@@ -131,7 +119,6 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
     VAR_UNUSED(len);
     VAR_UNUSED(src);
 
-    char* accumulated_data = NULL;
     uint total_chunk_recieved = 0;
 
     // Initiate the loop
@@ -155,7 +142,6 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
             remote.channel_established = 1;
 
             uint total_pending_size = recieved_packet.header.total_size;
-            accumulated_data = malloc(total_pending_size);
 
             data = malloc(total_pending_size);
 
@@ -172,7 +158,6 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
         {
             if(recieved_packet.chunk.checksum != generateChecksum(recieved_packet.chunk.data,KEY1))
             {
-                printf("Checksum: %d\n",generateChecksum(recieved_packet.chunk.data,KEY2));
                 Packet p_fail_packet;
                 p_fail_packet.header.type.type = P_CHECKSUM_FAIL;
                 if(!try_send(&p_fail_packet,remote.peer_adrs,CONNECTION_INIT_ATTEMPT))
@@ -181,19 +166,17 @@ int ecg_recieve(int src, char *data,int len, int to_ms)
             else
             {
                 uint chunk_size = recieved_packet.chunk.chunk_size;
-                cp_data(accumulated_data + total_chunk_recieved,recieved_packet.chunk.data,chunk_size);
+                cp_data(data,recieved_packet.chunk.data,chunk_size);
                 total_chunk_recieved += recieved_packet.chunk.chunk_size;
 
                 Packet p_ack_packet;
                 p_ack_packet.header.type.type = P_ACK;
 
-                if(try_send(&p_ack_packet,remote.peer_adrs,CONNECTION_SEND_ATTEMPT))
+                if(!try_send(&p_ack_packet,remote.peer_adrs,CONNECTION_SEND_ATTEMPT))
                     return error.error_code;
             }
         }
-
         else if (recieved_packet.header.type.type == COMPLETE) {
-            cp_data(data,accumulated_data,total_chunk_recieved);
             Packet p_ack;
             p_ack.header.type.type = ACK;
             if(!try_send(&p_ack,remote.peer_adrs,CONNECTION_FINAL_ATTEMP))

@@ -2,7 +2,6 @@
 #define ECGPROTOCOL_H
 
 #include <time.h>
-#include <string.h>
 #include "radio.h"
 
 
@@ -76,9 +75,9 @@ typedef struct
 typedef struct
 {
     Type    type; // Allocates 1 byte
-    char    data[FRAME_PAYLOAD_SIZE]; // 128 bytes allocated
     uint    chunk_size; // Allocates 4 bytes
     ushort  checksum; // Allocates 2 bytes
+    char    data[FRAME_PAYLOAD_SIZE]; // 128 bytes allocated
 }Chunk; // Allocates 135 bytes
 
 

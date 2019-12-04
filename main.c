@@ -16,7 +16,7 @@
 
 int main(int argc, char *argv[])
 {
-    char outbound_data[4096];
+    char msg[4096];
 
     ulong msg_size = 0;
 
@@ -47,19 +47,22 @@ int main(int argc, char *argv[])
        }
        else if(strncmp(MESSAGE_ARG,argv[i],sizeof (MESSAGE_ARG)) == 0)
        {
-           strcpy(outbound_data,argv[i+1]);
            msg_size = (ulong) strtol(argv[i+2],NULL,10);
+           cp_data(msg,argv[i+1],(uint)msg_size);
            i = (i < argc) ? ++i : i;
        }
     }
 
-    char inbound_data[msg_size];
-
     printf("Initial state:\n");
     printf("\tSource port: %d\n",src_port);
     printf("\tDestination port: %d\n",dst_port);
-    printf("\tData out: %s\n",outbound_data);
+    printf("\tData out: %s\n",msg);
     printf("\tTransmission size: %lld\n",msg_size);
+
+    char outbound_data[msg_size];
+    char inbound_data[4096];
+
+    cp_data(outbound_data,msg,msg_size);
 
     // Initialize the radio chip
     ecg_init((int) src_port);
