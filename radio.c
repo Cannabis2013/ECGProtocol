@@ -10,8 +10,8 @@ int radio_init(int addr)
 
     if(inet_aton(LOCALHOST,&LocalService.sin_addr) == 0 || addr < 1024 || addr > 65336)
     {
-        printf("%s","Not a valid IPv4 adress! Did you enter your household adress you idiot?");
-        return INVALID_ADRESS;
+        cp_data(radio_error.err_msg,"Invalid IPv4 adress.",sizeof ("Invalid IPv4 adress."));
+        return radio_error.code = INVALID_ADRESS;
     }
     LocalService.sin_family = AF_INET;
     LocalService.sin_port = htons((uint16_t)addr);
@@ -20,7 +20,8 @@ int radio_init(int addr)
     if(mySocket < 0)
     {
         printf("Socket is invalid");
-        return SOCKET_ERROR;
+        cp_data(radio_error.err_msg,"Failed to initialize socket.",sizeof ("Failed to initialize socket."));
+        return radio_error.code = SOCKET_ERROR;
     }
 
     /*
@@ -29,9 +30,8 @@ int radio_init(int addr)
 
     if(bind(mySocket,(struct sockaddr *)&LocalService,sizeof (LocalService)) == -1)
     {
-        // Error handling
-        printf("Shit happens");
-        exit(-1);
+        cp_data(radio_error.err_msg,"Failed to bind socket.",sizeof ("Failed to bind socket."));
+        return radio_error.code = CONNECTION_ERROR;
     }
 
     return 0;
@@ -47,20 +47,20 @@ int radio_send(int dst, char *data, int len)
     if(mySocket < 0)
     {
         uint size_of_msg = sizeof ("Socket not initialized. Please call radio_init() before calling radio_send().");
-        cp_data(radio_error.err_msg,"Socket not initialized. Please call radio_init() before calling radio_send().",size_of_msg);
-        radio_error.code = SOCKET_ERROR;
-        return radio_error.code;
+        cp_data(radio_error.err_msg,
+                "Socket not initialized. Please call radio_init() before calling radio_send().",size_of_msg);
+        return radio_error.code = SOCKET_ERROR;
     }
 
     // Initialize the frame
-    Frame_PTU ptu;
+    Frame_PDU pdu;
 
-    ptu.frame.header.src = htobe16(LocalService.sin_port);
-    ptu.frame.header.dst = (ushort) dst;
-    ptu.frame.header.lenght = FRAME_PAYLOAD_SIZE; // Size of raw data
-    ptu.frame.unique_adress = unique_adress;
+    pdu.frame.header.src = htobe16(LocalService.sin_port);
+    pdu.frame.header.dst = (ushort) dst;
+    pdu.frame.header.lenght = FRAME_PAYLOAD_SIZE; // Size of raw data
+    pdu.frame.unique_adress = unique_adress;
 
-    cp_data(ptu.frame.payload,data,(uint) len);
+    cp_data(pdu.frame.payload,data,(uint) len);
 
     // Check if adress is valid and initialize struct for later use
     struct sockaddr_in remoteService;
@@ -83,7 +83,7 @@ int radio_send(int dst, char *data, int len)
 
     /* Establish connection
      * NOTE: This is not the common UDP way of transmitting data;
-     * but it provides us with a quick opportunity to check whether the connection can be done.
+     * but it provides us with a quick opportunity to check whether source or destination is offline.
      */
 
     int connection = connect(mySocket,(struct sockaddr *)&remoteService,sizeof (remoteService));
@@ -91,7 +91,7 @@ int radio_send(int dst, char *data, int len)
         return CONNECTION_ERROR;
 
     block(1000); // Assuming the above operations took about 50ms
-    int bytes_send = (int) send(mySocket,ptu.raw,(uint) FRAME_SIZE,0);
+    int bytes_send = (int) send(mySocket,pdu.raw,(uint) FRAME_SIZE,0);
 
     return bytes_send;
 }
@@ -109,33 +109,37 @@ int radio_recv(int *src, char *data, int to_ms)
         return radio_error.code;
     }
 
-    Frame_PTU recieved_frame;
+    Frame_PDU pdu;
 
     if(to_ms == 0)
     {
-        ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_SIZE,MSG_DONTWAIT);
+        ssize_t bytes_recieved = recv(mySocket,pdu.raw,FRAME_SIZE,MSG_DONTWAIT);
 
-        uint magic_key = recieved_frame.frame.unique_adress;
+        uint magic_key = pdu.frame.unique_adress;
 
         if(bytes_recieved > 0)
         {
             if(remote.connection_established == 1 && remote.peer_id != magic_key)
                 return CONNECTION_REQUEST_IGNORED;
-            remote.peer_adrs = recieved_frame.frame.header.src;
+
+            if(pdu.frame.header.lenght > FRAME_PAYLOAD_SIZE)
+                return CONNECTION_REQUEST_IGNORED;
+
+            *src = pdu.frame.header.src;
+            remote.peer_adrs = pdu.frame.header.src;
             remote.peer_id = magic_key;
             block(1000);
-            cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
+            cp_data(data,pdu.frame.payload,CHUNK_SIZE);
         }
         return (int) bytes_recieved;
     }
 
     TIMER_IN t_in;
     start_timer(&t_in);
-    unsigned long long t_sec =  0;
-    while ((t_sec = time_elapsed(&t_in)) <= (unsigned long long) to_ms || to_ms < 0) {
-        ssize_t bytes_recieved = recv(mySocket,recieved_frame.raw,FRAME_SIZE,MSG_DONTWAIT);
+    while (time_elapsed(&t_in) <= (long) to_ms || to_ms < 0) {
+        ssize_t bytes_recieved = recv(mySocket,pdu.raw,FRAME_SIZE,MSG_DONTWAIT);
 
-        uint magic_key = recieved_frame.frame.unique_adress;
+        uint magic_key = pdu.frame.unique_adress;
 
         if(bytes_recieved > 0)
         {
@@ -143,8 +147,8 @@ int radio_recv(int *src, char *data, int to_ms)
                 return CONNECTION_REQUEST_IGNORED;
 
             remote.peer_id = magic_key;
-            remote.peer_adrs = recieved_frame.frame.header.src;
-            cp_data(data,recieved_frame.frame.payload,CHUNK_SIZE);
+            remote.peer_adrs = pdu.frame.header.src;
+            cp_data(data,pdu.frame.payload,CHUNK_SIZE);
             block(1000);
             return (int) bytes_recieved;
         }

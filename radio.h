@@ -95,7 +95,7 @@ typedef union
     char    raw[FRAME_SIZE];
     Frame   frame; // 162 bytes allocated
 
-}Frame_PTU;
+}Frame_PDU;
 
 
 static int mySocket;

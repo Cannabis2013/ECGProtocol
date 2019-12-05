@@ -73,7 +73,8 @@ int main(int argc, char *argv[])
     cp_data(outbound_data,msg,(uint) msg_size);
 
     // Initialize the radio chip
-    ecg_init((int) src_port);
+    if(ecg_init((int) src_port)<0)
+        return -1;
 
     TIMER_IN time_str;
     start_timer(&time_str);

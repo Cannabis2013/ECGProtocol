@@ -86,6 +86,7 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
     remote.peer_adrs = 0;
     remote.peer_id = 0;
 
+
     return len;
 }
 
@@ -172,17 +173,7 @@ int ecg_init(int addr)
     remote.peer_id = 0;
     remote.peer_adrs = 0;
 
-    int status = radio_init(addr);
-    if(status == INVALID_ADRESS)
-    {
-        printf("Adress not valid. No reason to proceed.");
-        exit(-1);
-    }
-    else if (status == CONNECTION_ERROR) {
-        exit(-1);
-    }
-
-    return status;
+    return radio_init(addr);
 }
 
 int await_reply(Packet *buffer,int timeout, int mode)
@@ -226,11 +217,7 @@ int try_send(Packet *packet,int adrs_reciever, int connection_attempts)
 
             return INVALID_ADRESS;
         }
-        else if(bytes_send == CONNECTION_ERROR)
-        {
-            connection_attempts--;
-        }
-        if(connection_attempts < 0)
+        else if(bytes_send == CONNECTION_ERROR && connection_attempts-- < 0)
             return CONNECTION_ERROR;
     }
 
