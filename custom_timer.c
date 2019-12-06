@@ -1,43 +1,27 @@
 #include "custom_timer.h"
 
-void start_timer()
+void start_timer(TIMER_IN *t_in)
 {
-    struct timeval _tVal;
-    gettimeofday(&_tVal,0);
-
-    _timestamp_sec = _tVal.tv_sec;
-    _timestamp_usec = _tVal.tv_usec;
+    t_in->clocks = clock();
 }
 
-long long time_elapsed()
+long  time_elapsed(TIMER_IN *t_in)
 {
-    long long _elapsed;
-    long long _current_time_sec,
-            _current_time_usec;
+    clock_t clocks = clock();
 
-    struct timeval _tVal;
-    gettimeofday(&_tVal,0);
-
-    _current_time_sec = _tVal.tv_sec;
-    _current_time_usec = _tVal.tv_usec;
-
-    _elapsed = 1000*(_current_time_sec - _timestamp_sec) + (long long) round((_current_time_usec - _timestamp_usec)/1000);
-    return _elapsed;
+    return 1000*(clocks - t_in->clocks)/CLOCKS_PER_SEC;
 }
 
 void block(int ms)
 {
-    struct timeval _tVal;
-    gettimeofday(&_tVal,0);
+    clock_t start = clock();
 
-    uint sec = _tVal.tv_sec;
-    uint usec = _tVal.tv_usec;
-
-    int times_up = 0;
-
-    while (!times_up) {
-        gettimeofday(&_tVal,0);
-        long long elapsed = 1000*(_tVal.tv_sec - sec) + (long long) round((_tVal.tv_usec - usec)/1000);
-        times_up = elapsed > ms ? 1 : 0;
+    while ((1000*(clock() - start)/CLOCKS_PER_SEC) <= ms) {
     }
+}
+
+
+long toMs(clock_t clocks)
+{
+    return 1000*clocks/CLOCKS_PER_SEC;
 }

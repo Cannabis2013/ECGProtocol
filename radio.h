@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <math.h>
+#include <string.h>
 
 #include "custom_timer.h"
 
@@ -39,7 +40,7 @@
 #define AWAIT_CONTIGUOUS 0
 #define AWAIT_TIMEOUT 1
 
-#define SEED 0
+#define SEED 5
 uint unique_adress;
 
 typedef struct
@@ -57,15 +58,15 @@ struct sockaddr_in LocalService;
 #define CONNECTION_ERROR -2
 #define SOCKET_ERROR -3
 #define INVALID_ADRESS -4
-#define INBOUND_REQUEST_IGNORED -5
-
+#define CONNECTION_REQUEST_IGNORED -5
+#define CONNECTION_HANDSHAKE_FAILED -6
 
 // Used for ensuring one peer-to-peer relation at a time
 typedef struct
 {
     uint peer_id;
     ushort peer_adrs;
-    int channel_established;
+    int connection_established;
 }REMOTE_META;
 
 REMOTE_META remote;
@@ -84,17 +85,17 @@ typedef struct
     char            preAmble[10]; // 10 bytes allocated
     uint            unique_adress; // 4 bytes allocated
     Frame_Header    header; // 6 bytes allocated
-    char            payload[CHUNK_SIZE]; // 135 bytes allocated
     ushort          checksum; // 2 bytes allocated
+    char            payload[CHUNK_SIZE]; // 135 bytes allocated
 
-}Frame; // 10 + 4 + 6 + 135 + 2 = 157 bytes total allocated for this structure
+}Frame; // 10 + 4 + 6 + 135  = 22 + 135= 157 bytes total allocated for this structure
 
 typedef union
 {
     char    raw[FRAME_SIZE];
     Frame   frame; // 162 bytes allocated
 
-}Frame_PTU;
+}Frame_PDU;
 
 
 static int mySocket;
