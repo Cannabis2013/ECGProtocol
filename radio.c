@@ -90,7 +90,7 @@ int radio_send(int dst, char *data, int len)
     if(connection < 0)
         return CONNECTION_ERROR;
 
-    block(1000); // Assuming the above operations took about 50ms
+    block(SLEEP_TIME); // Assuming the above operations took about 50ms
     int bytes_send = (int) send(mySocket,pdu.raw,(uint) FRAME_SIZE,0);
 
     return bytes_send;
@@ -128,7 +128,7 @@ int radio_recv(int *src, char *data, int to_ms)
             *src = pdu.frame.header.src;
             remote.peer_adrs = pdu.frame.header.src;
             remote.peer_id = magic_key;
-            block(1000);
+            block(SLEEP_TIME);
             cp_data(data,pdu.frame.payload,CHUNK_SIZE);
         }
         return (int) bytes_recieved;
@@ -149,7 +149,7 @@ int radio_recv(int *src, char *data, int to_ms)
             remote.peer_id = magic_key;
             remote.peer_adrs = pdu.frame.header.src;
             cp_data(data,pdu.frame.payload,CHUNK_SIZE);
-            block(1000);
+            block(SLEEP_TIME);
             return (int) bytes_recieved;
         }
     }

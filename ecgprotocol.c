@@ -19,6 +19,7 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
      *  - Session time should be identical to transmission time for the client
      */
     session_statistics.session_start_clock = clock();
+    session_statistics.packets_lost = 0;
 
     /*
      * INITIAL STATE
@@ -69,8 +70,9 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
         if(t_details.p_recv.header.type.type == P_ACK)
         {
             residual_data_len -= FRAME_PAYLOAD_SIZE;
-            str_index += residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
-            total_sent = (uint) t_details.bytes_sent;
+            int payload_size = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
+            str_index += payload_size;
+            total_sent = (uint) payload_size;
         }
     }
 
@@ -169,10 +171,12 @@ int ecg_recieve(int src, char *packet,int len, int to_ms)
             }
             else
             {
-                uint indice_begin = total_chunk_recieved;
+                uint indice_begin = recv_packet.chunk.t_send;
                 uint chunk_size = recv_packet.chunk.size;
                 cp_data(packet + indice_begin,recv_packet.chunk.data,chunk_size);
-                total_chunk_recieved += recv_packet.chunk.size;
+                total_chunk_recieved += indice_begin + chunk_size;
+
+                session_statistics.packets_lost = ++session_statistics.packets_lost;
 
                 Packet p_ack_packet;
                 p_ack_packet.header.type.type = P_ACK;
@@ -282,8 +286,11 @@ int send_and_await_reply(Packet *packet,
         }
         else if(t->bytes_recv == TIMEOUT && packet->chunk.type.type == CHUNK)
         {
-            // In case of server side packet loss. The network interface fails to deliver a P_ACK packet
-            // TODO: Remember to log this in the statistics structure
+            /*
+             * In case network interface fails to either send data or reply.
+             */
+
+
             packet->chunk.type.type = RESEND;
             error.error_code = t->bytes_recv;
             attempt--;

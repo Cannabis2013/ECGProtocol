@@ -26,12 +26,14 @@
 
 #include "custom_timer.h"
 
+#define SLEEP_TIME 100
+
 // Used to silence warnings related to unused variables
 #define VAR_UNUSED(X) X = X
 
-#define FRAME_SIZE 161 // Total size of the frame to be transmitted
-#define FRAME_PAYLOAD_SIZE 128 // Raw data size
-#define CHUNK_SIZE 139 // Raw data size + additional meta overhead
+#define FRAME_SIZE 240 // Total size of the frame to be transmitted
+#define FRAME_PAYLOAD_SIZE 207 // Raw data size
+#define CHUNK_SIZE 218 // Raw data size + additional meta overhead
 
 // Device adress related
 #define LOCALHOST "127.0.0.1"
@@ -86,9 +88,9 @@ typedef struct
     uint            unique_adress; // 4 bytes allocated
     Frame_Header    header; // 6 bytes allocated
     ushort          checksum; // 2 bytes allocated
-    char            payload[CHUNK_SIZE]; // 135 bytes allocated
+    char            payload[CHUNK_SIZE]; // 218 bytes allocated
 
-}Frame; // 10 + 4 + 6 + 135  = 22 + 139= 161 bytes total allocated for this structure
+}Frame; // 10 + 4 + 6 + 139  = 22 + 139= 161 bytes total allocated for this structure
 
 typedef union
 {

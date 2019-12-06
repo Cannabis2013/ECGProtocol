@@ -36,9 +36,7 @@ static Error error;
 
 #define CONNECTION_INIT_ATTEMPT 2
 #define CONNECTION_SEND_ATTEMPT 2
-#define CONNECTION_AWAIT_ATTEMPT 2
 #define CONNECTION_FINAL_ATTEMP 8
-#define CONNECTION_LISTEN_ATTEMPT 1
 
 #define type_t char
 
@@ -71,8 +69,8 @@ typedef struct
     uint    size; // Allocates 4 bytes
     uint    t_send; // Allocates 4 bytes
     ushort  checksum; // Allocates 2 bytes
-    char    data[FRAME_PAYLOAD_SIZE]; // 128 bytes allocated
-}Chunk; // Allocates 139 bytes
+    char    data[FRAME_PAYLOAD_SIZE]; // 207 bytes allocated
+}Chunk; // Allocates 218 bytes
 
 
 typedef union
@@ -105,6 +103,8 @@ typedef struct
     clock_t transmission_end_clock;
     int bytes_transmitted;
     CONNECTION_TYPE type;
+
+    int packets_lost;
 }STATISTICS;
 
 STATISTICS session_statistics;
