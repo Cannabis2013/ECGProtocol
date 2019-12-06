@@ -50,6 +50,7 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
 
     int str_index = 0;
     int residual_data_len = len;
+    uint total_sent = 0;
     while (residual_data_len > 0)
     {
         Packet chunk_packet;
@@ -59,6 +60,7 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
         cp_data(chunk_packet.chunk.data,packet + str_index, packet_len);
         chunk_packet.chunk.checksum = generateChecksum(chunk_packet.chunk.data,KEY1);
         chunk_packet.chunk.size = packet_len;
+        chunk_packet.chunk.t_send = total_sent;
 
         TRANSMIT_DETAILS t_details;
         if(send_and_await_reply(&chunk_packet,dst,CONNECTION_SEND_ATTEMPT,to_ms,AWAIT_TIMEOUT,&t_details) < 0)
@@ -68,6 +70,7 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
         {
             residual_data_len -= FRAME_PAYLOAD_SIZE;
             str_index += residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : residual_data_len;
+            total_sent = (uint) t_details.bytes_sent;
         }
     }
 
@@ -142,8 +145,33 @@ int ecg_recieve(int src, char *packet,int len, int to_ms)
             }
             else
             {
+                uint indice_begin = total_chunk_recieved;
                 uint chunk_size = recv_packet.chunk.size;
-                cp_data(packet + total_chunk_recieved,recv_packet.chunk.data,chunk_size);
+                cp_data(packet + indice_begin,recv_packet.chunk.data,chunk_size);
+                total_chunk_recieved += chunk_size;
+
+                Packet p_ack_packet;
+                p_ack_packet.header.type.type = P_ACK;
+
+                if(try_send(&p_ack_packet,remote.peer_adrs,CONNECTION_SEND_ATTEMPT) < 0)
+                    return error.error_code;
+
+            }
+        }
+        else if(recv_packet.chunk.type.type == RESEND)
+        {
+            if(recv_packet.chunk.checksum != generateChecksum(recv_packet.chunk.data,KEY1))
+            {
+                Packet p_fail_packet;
+                p_fail_packet.header.type.type = P_CHECKSUM_FAIL;
+                if(!try_send(&p_fail_packet,remote.peer_adrs,CONNECTION_INIT_ATTEMPT))
+                    return error.error_code;
+            }
+            else
+            {
+                uint indice_begin = total_chunk_recieved;
+                uint chunk_size = recv_packet.chunk.size;
+                cp_data(packet + indice_begin,recv_packet.chunk.data,chunk_size);
                 total_chunk_recieved += recv_packet.chunk.size;
 
                 Packet p_ack_packet;
@@ -234,7 +262,11 @@ ushort generateChecksum(char *msg, ushort key)
     return ((ushort) sum)^key;
 }
 
-int send_and_await_reply(Packet *packet, int adrs_reciever, int connection_attempts, int timeout, int mode, TRANSMIT_DETAILS *t)
+int send_and_await_reply(Packet *packet,
+                         int adrs_reciever,
+                         int connection_attempts,
+                         int timeout,
+                         int mode, TRANSMIT_DETAILS *t)
 {
     int attempt = connection_attempts;
     while(attempt > 0)
@@ -247,6 +279,14 @@ int send_and_await_reply(Packet *packet, int adrs_reciever, int connection_attem
         {
             t->p_recv = p_recv;
             return 0;
+        }
+        else if(t->bytes_recv == TIMEOUT && packet->chunk.type.type == CHUNK)
+        {
+            // In case of server side packet loss. The network interface fails to deliver a P_ACK packet
+            // TODO: Remember to log this in the statistics structure
+            packet->chunk.type.type = RESEND;
+            error.error_code = t->bytes_recv;
+            attempt--;
         }
         else if(t->bytes_recv == TIMEOUT)
         {

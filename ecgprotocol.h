@@ -52,7 +52,7 @@ static Error error;
 #define P_ACK '3'
 #define COMPLETE '4'
 #define P_CHECKSUM_FAIL '5'
-#define ABORT '6'
+#define RESEND '6'
 
 typedef struct
 {
@@ -69,9 +69,10 @@ typedef struct
 {
     Type    type; // Allocates 1 byte
     uint    size; // Allocates 4 bytes
+    uint    t_send; // Allocates 4 bytes
     ushort  checksum; // Allocates 2 bytes
     char    data[FRAME_PAYLOAD_SIZE]; // 128 bytes allocated
-}Chunk; // Allocates 135 bytes
+}Chunk; // Allocates 139 bytes
 
 
 typedef union

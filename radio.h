@@ -29,9 +29,9 @@
 // Used to silence warnings related to unused variables
 #define VAR_UNUSED(X) X = X
 
-#define FRAME_SIZE 157 // Total size of the frame to be transmitted
+#define FRAME_SIZE 161 // Total size of the frame to be transmitted
 #define FRAME_PAYLOAD_SIZE 128 // Raw data size
-#define CHUNK_SIZE 135 // Raw data size + additional meta overhead
+#define CHUNK_SIZE 139 // Raw data size + additional meta overhead
 
 // Device adress related
 #define LOCALHOST "127.0.0.1"
@@ -88,7 +88,7 @@ typedef struct
     ushort          checksum; // 2 bytes allocated
     char            payload[CHUNK_SIZE]; // 135 bytes allocated
 
-}Frame; // 10 + 4 + 6 + 135  = 22 + 135= 157 bytes total allocated for this structure
+}Frame; // 10 + 4 + 6 + 135  = 22 + 139= 161 bytes total allocated for this structure
 
 typedef union
 {
