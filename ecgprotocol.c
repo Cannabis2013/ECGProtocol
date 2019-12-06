@@ -18,7 +18,6 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
      * Statistics
      *  - Session time should be identical to transmission time for the client
      */
-    session_statistics.session_start_clock = clock();
     session_statistics.packets_lost = 0;
 
     /*
@@ -98,7 +97,7 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
 int ecg_recieve(int src, char *packet,int len, int to_ms)
 {
     // Statistics
-    session_statistics.session_start_clock = clock();
+
 
     // Silence warnings
     VAR_UNUSED(len);
@@ -175,8 +174,8 @@ int ecg_recieve(int src, char *packet,int len, int to_ms)
                 uint chunk_size = recv_packet.chunk.size;
                 cp_data(packet + indice_begin,recv_packet.chunk.data,chunk_size);
                 total_chunk_recieved += indice_begin + chunk_size;
-
-                session_statistics.packets_lost = ++session_statistics.packets_lost;
+                int p_lost = ++session_statistics.packets_lost;
+                session_statistics.packets_lost = ++p_lost;
 
                 Packet p_ack_packet;
                 p_ack_packet.header.type.type = P_ACK;
@@ -201,6 +200,7 @@ int ecg_recieve(int src, char *packet,int len, int to_ms)
 
 int ecg_init(int addr)
 {
+    session_statistics.session_start_clock = clock();
     remote.connection_established = 0;
     remote.peer_id = 0;
     remote.peer_adrs = 0;

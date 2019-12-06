@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 {
     char msg[4096];
 
-    int msg_size = 0;
+    int msg_size = 4096;
 
     ushort src_port = 35000;
     ushort dst_port = 22500;
@@ -81,19 +81,25 @@ int main(int argc, char *argv[])
 
     if(role == SERVER_ROLE)
     {
-        char inbound_data[4096];
         printf("\n\nNow listens on port: %d\n",src_port);
-        int bytes_recieved = ecg_recieve(0,inbound_data,0,timeout);
+        while (1) {
+            char inbound_data[4096];
+            int bytes_recieved = ecg_recieve(0,inbound_data,0,timeout);
 
-        session_statistics.session_end_clock = clock();
+            session_statistics.session_end_clock = clock();
 
-        printf("\nStatistics\n");
-        printf("##########\n");
-        printf("Source port: %d\n",session_statistics.peer_adrs);
-        printf("Bytes recieved: %d b\n",bytes_recieved);
-        printf("Message: %s\n",inbound_data);
-        printf("Session duration: %ld ms\n",toMs(session_statistics.session_end_clock - session_statistics.session_start_clock));
-        printf("Latency: %ld ms\n",toMs(session_statistics.transmission_end_clock - session_statistics.transmission_start_clock));
+            printf("\nStatistics\n");
+            printf("################\n");
+            printf("Source port: %d\n",session_statistics.peer_adrs);
+            printf("Bytes recieved: %d b\n",bytes_recieved);
+            printf("Packets lost: %d\n",session_statistics.packets_lost);
+            printf("Message: %s\n",inbound_data);
+            printf("Session duration: %ld ms\n",toMs(session_statistics.session_end_clock - session_statistics.session_start_clock));
+            printf("Latency: %ld ms\n",toMs(session_statistics.transmission_end_clock - session_statistics.transmission_start_clock));
+
+            bzero(inbound_data,4096);
+        }
+
         return 0;
     }
 
@@ -102,9 +108,9 @@ int main(int argc, char *argv[])
     session_statistics.session_end_clock = clock();
 
     printf("\nStatistics\n");
-    printf("##########\n");
+    printf("################\n");
     printf("Bytes sent: %d b \n",bytes_sent);
+    printf("Packets lost: %d\n",session_statistics.packets_lost);
     printf("Session duration: %ld ms\n",toMs(session_statistics.session_end_clock - session_statistics.session_start_clock));
-
     return 0;
 }
