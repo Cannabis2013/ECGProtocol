@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 4.10.2, 2019-12-06T15:24:11. -->
+<!-- Written by QtCreator 4.10.2, 2019-12-06T18:51:32. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -314,7 +314,7 @@
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">ECGProtocol</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">ECGProtocol2</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">Qt4ProjectManager.Qt4RunConfiguration:/home/mh/Programming/C/ECGProtocol/ECGProtocol.pro</value>
-    <value type="QString" key="RunConfiguration.Arguments">--ROLE-SERVER --TIMEOUT 2500ls --PORT-SRC 22500</value>
+    <value type="QString" key="RunConfiguration.Arguments"></value>
     <value type="uint" key="RunConfiguration.QmlDebugServerPort">3768</value>
     <value type="bool" key="RunConfiguration.UseCppDebugger">false</value>
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>

@@ -65,17 +65,17 @@ typedef struct
 
 typedef struct
 {
-    Type    type; // Allocates 1 byte
     uint    size; // Allocates 4 bytes
     uint    t_send; // Allocates 4 bytes
-    ushort  checksum; // Allocates 2 bytes
-    char    data[FRAME_PAYLOAD_SIZE]; // 207 bytes allocated
+    int     seal; // Allocates 4 bytes
+    Type    type; // Allocates 1 byte
+    char    data[FRAME_PAYLOAD_SIZE]; // 205 bytes allocated
 }Chunk; // Allocates 218 bytes
 
 
 typedef union
 {
-    char    raw[CHUNK_SIZE];
+    char    raw[CHUNK_SIZE]; // Allocates 218 bytes
 
     Header  header;
     Chunk   chunk;
@@ -96,20 +96,19 @@ typedef struct
 typedef struct
 {
     int peer_adrs;
-
+    CONNECTION_TYPE type;
+    int bytes_transmitted;
     clock_t session_start_clock;
     clock_t session_end_clock;
     clock_t transmission_start_clock;
     clock_t transmission_end_clock;
-    int bytes_transmitted;
-    CONNECTION_TYPE type;
 
     int packets_lost;
 }STATISTICS;
 
 STATISTICS session_statistics;
-ushort generateChecksum(char *msg, ushort key);
-
+int fingerprint(char *msg, int key, int len);
+void printArray(char *arr, int len);
 int send_and_await_reply(Packet*packet, int adrs_reciever, int connection_attempts, int timeout, int mode, TRANSMIT_DETAILS *t);
 int try_send(Packet *packet, int adrs_reciever, int connection_attempts);
 int await_reply(Packet *buffer, int timeout, int mode);

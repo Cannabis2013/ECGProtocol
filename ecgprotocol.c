@@ -57,10 +57,10 @@ int ecg_send(int dst, char *packet, int len,int to_ms)
 
         chunk_packet.chunk.type.type = CHUNK;
         uint packet_len = residual_data_len >= FRAME_PAYLOAD_SIZE ? FRAME_PAYLOAD_SIZE : (uint) residual_data_len;
-        cp_data(chunk_packet.chunk.data,packet + str_index, packet_len);
-        chunk_packet.chunk.checksum = generateChecksum(chunk_packet.chunk.data,KEY1);
         chunk_packet.chunk.size = packet_len;
         chunk_packet.chunk.t_send = total_sent;
+        cp_data(chunk_packet.chunk.data,packet + str_index, packet_len);
+        chunk_packet.chunk.seal = fingerprint(chunk_packet.chunk.data,KEY1,FRAME_PAYLOAD_SIZE);
 
         TRANSMIT_DETAILS t_details;
         if(send_and_await_reply(&chunk_packet,dst,CONNECTION_SEND_ATTEMPT,to_ms,AWAIT_TIMEOUT,&t_details) < 0)
@@ -119,7 +119,6 @@ int ecg_recieve(int src, char *packet,int len, int to_ms)
         if(bytes_recieved < 0)
             return error.error_code;
 
-
         if(recv_packet.header.type.type == INIT)
         {
             // Statistics
@@ -137,8 +136,11 @@ int ecg_recieve(int src, char *packet,int len, int to_ms)
         }
         else if(recv_packet.chunk.type.type == CHUNK)
         {
-            if(recv_packet.chunk.checksum != generateChecksum(recv_packet.chunk.data,KEY1))
+            if(recv_packet.chunk.seal != fingerprint(recv_packet.chunk.data,KEY1,FRAME_PAYLOAD_SIZE))
             {
+                printf("Checksum: %d\n",recv_packet.chunk.seal);
+                printf("Checksum cmp: %d\n",fingerprint(recv_packet.chunk.data,KEY2,FRAME_PAYLOAD_SIZE));
+
                 Packet p_fail_packet;
                 p_fail_packet.header.type.type = P_CHECKSUM_FAIL;
                 if(!try_send(&p_fail_packet,remote.peer_adrs,CONNECTION_INIT_ATTEMPT))
@@ -161,7 +163,7 @@ int ecg_recieve(int src, char *packet,int len, int to_ms)
         }
         else if(recv_packet.chunk.type.type == RESEND)
         {
-            if(recv_packet.chunk.checksum != generateChecksum(recv_packet.chunk.data,KEY1))
+            if(recv_packet.chunk.seal != fingerprint(recv_packet.chunk.data,KEY1,FRAME_PAYLOAD_SIZE))
             {
                 Packet p_fail_packet;
                 p_fail_packet.header.type.type = P_CHECKSUM_FAIL;
@@ -256,14 +258,17 @@ int try_send(Packet *packet,int adrs_reciever, int connection_attempts)
     return bytes_send;
 }
 
-ushort generateChecksum(char *msg, ushort key)
+
+
+int fingerprint(char *msg, int key,int len)
 {
     char sum = 0;
     char *s;
-    for (s = msg;*s!= 0;s++) {
+    int a = 0;
+    for (s = msg;*s!= 0 && a < len;s++,a++) {
         sum ^= *s;
     }
-    return ((ushort) sum)^key;
+    return ((int) sum)^key;
 }
 
 int send_and_await_reply(Packet *packet,
@@ -305,4 +310,13 @@ int send_and_await_reply(Packet *packet,
     }
 
     return error.error_code;
+}
+
+void printArray(char *arr, int len)
+{
+    for (int i = 0; i < len; ++i) {
+        char c = *(arr + i);
+        printf("%c",c);
+    }
+    printf("\n");
 }

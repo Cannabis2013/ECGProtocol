@@ -26,12 +26,17 @@ int main(int argc, char *argv[])
 {
     char msg[4096];
 
-    int msg_size = 4096;
+    int msg_size = sizeof ("When a client hasn't received any reply from its destination while in DATA TRANSFER STATE, due to the pre-mentioned reasons, it will enter a new state trying to send the packet again. The packet this time has its type initialized to \\code{RESEND} so the receiver know it's the same packet, and not new data. The client does this by transmitting the total raw payload size sent, which is updated for every time it receives a reply packet with its type initialized to \code{P\_ACK}. In this way it holds track of how many bytes of data the listener device actually have received, and the receiver likewise uses this field as an index to concatenate its data array with the data chunk received from the client.");;
 
     ushort src_port = 35000;
     ushort dst_port = 22500;
     int timeout = 2500;
     int role = CLIENT_ROLE;
+
+
+    char data[msg_size];
+    cp_data(data,"When a client hasn't received any reply from its destination while in DATA TRANSFER STATE, due to the pre-mentioned reasons, it will enter a new state trying to send the packet again. The packet this time has its type initialized to \\code{RESEND} so the receiver know it's the same packet, and not new data. The client does this by transmitting the total raw payload size sent, which is updated for every time it receives a reply packet with its type initialized to \code{P\_ACK}. In this way it holds track of how many bytes of data the listener device actually have received, and the receiver likewise uses this field as an index to concatenate its data array with the data chunk received from the client.",msg_size);
+
 
     for (int i = 1; i < argc; i++) {
        if(strncmp(PORT_SRC_ARG,argv[i],sizeof (PORT_SRC_ARG)) == 0)
@@ -69,8 +74,7 @@ int main(int argc, char *argv[])
     printf("\tTransmission size: %d\n",msg_size);
 
     char outbound_data[msg_size];
-
-    cp_data(outbound_data,msg,(uint) msg_size);
+    cp_data(outbound_data,data,(uint) msg_size);
 
     // Initialize the radio chip
     if(ecg_init((int) src_port)<0)
@@ -85,7 +89,8 @@ int main(int argc, char *argv[])
         while (1) {
             char inbound_data[4096];
             int bytes_recieved = ecg_recieve(0,inbound_data,0,timeout);
-
+            if(bytes_recieved < 0)
+                return -1;
             session_statistics.session_end_clock = clock();
 
             printf("\nStatistics\n");

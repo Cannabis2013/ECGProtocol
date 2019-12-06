@@ -59,7 +59,6 @@ int radio_send(int dst, char *data, int len)
     pdu.frame.header.dst = (ushort) dst;
     pdu.frame.header.lenght = FRAME_PAYLOAD_SIZE; // Size of raw data
     pdu.frame.unique_adress = unique_adress;
-
     cp_data(pdu.frame.payload,data,(uint) len);
 
     // Check if adress is valid and initialize struct for later use
@@ -144,6 +143,9 @@ int radio_recv(int *src, char *data, int to_ms)
         if(bytes_recieved > 0)
         {
             if(remote.connection_established == 1 && remote.peer_id != magic_key)
+                return CONNECTION_REQUEST_IGNORED;
+
+            if(pdu.frame.header.lenght > FRAME_PAYLOAD_SIZE)
                 return CONNECTION_REQUEST_IGNORED;
 
             remote.peer_id = magic_key;

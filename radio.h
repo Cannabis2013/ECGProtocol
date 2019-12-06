@@ -32,7 +32,7 @@
 #define VAR_UNUSED(X) X = X
 
 #define FRAME_SIZE 240 // Total size of the frame to be transmitted
-#define FRAME_PAYLOAD_SIZE 207 // Raw data size
+#define FRAME_PAYLOAD_SIZE 205 // Raw data size
 #define CHUNK_SIZE 218 // Raw data size + additional meta overhead
 
 // Device adress related
@@ -47,8 +47,8 @@ uint unique_adress;
 
 typedef struct
 {
-    char err_msg[128];
     int code;
+    char err_msg[128];
 }radio_err;
 
 radio_err radio_error;
@@ -84,18 +84,18 @@ typedef struct
 
 typedef struct
 {
-    char            preAmble[10]; // 10 bytes allocated
     uint            unique_adress; // 4 bytes allocated
-    Frame_Header    header; // 6 bytes allocated
     ushort          checksum; // 2 bytes allocated
+    Frame_Header    header; // 6 bytes allocated
+    char            preAmble[10]; // 10 bytes allocated
     char            payload[CHUNK_SIZE]; // 218 bytes allocated
 
-}Frame; // 10 + 4 + 6 + 139  = 22 + 139= 161 bytes total allocated for this structure
+}Frame; // 2 + 4  + 6 + 10 + 218  = 22 + 218= 240 bytes total allocated for this structure
 
 typedef union
 {
     char    raw[FRAME_SIZE];
-    Frame   frame; // 162 bytes allocated
+    Frame   frame; // 240 bytes allocated
 
 }Frame_PDU;
 
